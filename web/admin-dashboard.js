@@ -8,7 +8,7 @@ function stats(){
  else if(ui.period==="custom"){start=ui.from;end=ui.to}
  const list=convos.filter(c=>{const day=iso(new Date(c.created_at));return day>=start&&day<=end});
  const count=convos.flatMap(c=>c.messages).filter(m=>m.sender==="cliente"&&m.created_at&&iso(new Date(m.created_at))>=start&&iso(new Date(m.created_at))<=end).length;
- return {att:list.length,msg:count,pa:0,pm:0,vs:"Dados reais do período",wa:list.length,ig:0,topics:[["Lumi ativa",list.filter(c=>c.status==="lumi").length],["Aguardando atendimento",list.filter(c=>c.status==="aguardando").length],["Atendimento humano",list.filter(c=>c.status==="humano").length]]};
+ return {att:list.length,msg:count,pa:0,pm:0,vs:"Dados reais do período",wa:list.filter(c=>c.channel!=="whatsapp").length,ig:list.filter(c=>c.channel==="whatsapp").length,topics:[["Lumi ativa",list.filter(c=>c.status==="lumi").length],["Aguardando atendimento",list.filter(c=>c.status==="aguardando").length],["Atendimento humano",list.filter(c=>c.status==="humano").length]]};
 }
 const PERIODS=[["hoje","Hoje"],["ontem","Ontem"],["7d","Últimos 7 dias"],["30d","Últimos 30 dias"],["dia","Dia específico"],["custom","Período personalizado"]];
 function subtitle(){
@@ -25,7 +25,7 @@ function renderDash(){
     <section class="card">
       <div class="card-h"><h2>Últimos atendimentos</h2><a class="link" href="#conversas" data-reset>Ver todos →</a></div>
       <div class="card-b recent">
-        ${convos.slice(0,4).map(c=>`<a href="#conversas" data-open="${c.id}"><span class="ini">${esc(c.name.slice(0,2).toUpperCase())}</span><div style="min-width:0"><div class="r-name">${esc(c.name)} <span>· Simulador</span></div><div class="r-msg">Lumi: ${esc(c.messages.at(-1)?.content||"Conversa iniciada")}</div></div><span class="r-time num">${new Date(c.created_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</span></a>`).join("")}
+        ${convos.slice(0,4).map(c=>`<a href="#conversas" data-open="${c.id}"><span class="ini">${esc(c.name.slice(0,2).toUpperCase())}</span><div style="min-width:0"><div class="r-name">${esc(c.name)} <span>· ${c.channel==="whatsapp"?"WhatsApp":"Simulador"}</span></div><div class="r-msg">Lumi: ${esc(c.messages.at(-1)?.content||"Conversa iniciada")}</div></div><span class="r-time num">${new Date(c.created_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</span></a>`).join("")}
       </div>
     </section>
   </div>`;

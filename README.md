@@ -58,7 +58,11 @@ Se a fila esvaziar antes do bloqueio, os avisos são zerados. O bloqueio persist
 
 ## Contexto e tempo de resposta
 
-O prompt usa identidade e funcionalidades autorizadas, personalidade e conhecimento do tenant, seguidos do histórico recente. O conhecimento textual ainda é incluído como contexto completo, sem busca vetorial. Configurações permitem editar instruções, personalidade, conhecimento e imagens. Onboarding e WhatsApp são as próximas etapas.
+O prompt usa identidade e funcionalidades autorizadas, personalidade e conhecimento do tenant, seguidos do histórico recente. O conhecimento textual ainda é incluído como contexto completo, sem busca vetorial. Configurações permitem editar instruções, personalidade, conhecimento e imagens. O onboarding continua como próxima etapa.
+
+## WhatsApp de teste
+
+O receptor da Cloud API, o vínculo por número e a entrega de textos e imagens estão implementados. A ativação depende de configurar o aplicativo e o número de teste na Meta. Consulte [a configuração do WhatsApp](docs/whatsapp.md). O receptor roda na porta 8002, separada do admin, e é o único serviço que deve ser exposto pelo túnel HTTPS.
 
 O provider fica em `app/providers.py` e usa Codex CLI com pasta temporária, ambiente reduzido e esforço de raciocínio baixo. No teste local, uma resposta simples levou aproximadamente 6 segundos, contra aproximadamente 29 segundos na versão anterior; a duração varia com o modelo e o serviço. O handover explícito levou cerca de 0,4 segundo. O CLI ainda inicia um processo a cada inferência; uma API de modelo ou conexão persistente poderá reduzir esse custo depois. Defina `LUMI_PROVIDER=demo` para resposta fixa sem usar o Codex.
 

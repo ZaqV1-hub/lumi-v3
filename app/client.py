@@ -107,13 +107,21 @@ def handover(tid, cid, role, reason):
 
 @router.post("/api/client/{token}/messages")
 def client_send(token: str, data: TextInput):
+    receipt = receive_message(token, data)
+    if not receipt.get("accepted"):
+        return {"ok": True, "blocked": receipt.get("blocked", False)}
+    return process_message(receipt)
+
+
+def receive_message(token, data):
+    """Admite a mensagem antes de esperar a IA, inclusive no canal WhatsApp."""
     with admission_lock, Session.begin() as db:
         v = visitor(db, token)
         c = conversation(db, v.tenant_id, v.conversation_id)
         contact_id = c.contact_id
         gate = db.get(ContactGate, contact_id)
         if gate and gate.blocked:
-            return {"ok": True, "blocked": True}
+            return {"accepted": False, "blocked": True}
         incoming = Message(
             tenant_id=v.tenant_id,
             conversation_id=c.id,
@@ -124,13 +132,30 @@ def client_send(token: str, data: TextInput):
         db.flush()
         cutoff = incoming.created_at
         if c.status != "lumi":
-            return {"ok": True}
+            return {"accepted": False}
         if not admit(db, v.tenant_id, c.id, contact_id):
-            return {"ok": True}
+            return {"accepted": False}
         revision = control(db, c.id).revision
+    return {
+        "accepted": True,
+        "token": token,
+        "data": data,
+        "cutoff": cutoff,
+        "revision": revision,
+        "contact_id": contact_id,
+    }
+
+
+def process_message(receipt):
+    contact_id = receipt["contact_id"]
     try:
         with generation_lock(contact_id):
-            return answer_message(token, data, cutoff, revision)
+            return answer_message(
+                receipt["token"],
+                receipt["data"],
+                receipt["cutoff"],
+                receipt["revision"],
+            )
     finally:
         finish(contact_id)
 

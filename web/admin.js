@@ -307,7 +307,7 @@ function drawConvoBody() {
           c.id +
           '" aria-current="' +
           (c.id === ui.conv) +
-          '"><span class="top"><span class="pill wa">Simulador</span></span><b>' +
+          '"><span class="top"><span class="pill wa">' + (c.channel === 'whatsapp' ? 'WhatsApp' : 'Simulador') + '</span></span><b>' +
           esc(c.name) +
           '</b><span class="last">' +
           esc(c.messages.at(-1)?.content || "Conversa iniciada") +
@@ -399,7 +399,7 @@ function detail(c) {
                 ? m.name || "Operador"
                 : "",
           ) +
-          "</time></div>",
+          (m.delivery ? ' · ' + esc({pending:'Envio pendente',sending:'Enviando ao WhatsApp',sent:'Enviado ao WhatsApp',failed:'Falha no envio ao WhatsApp'}[m.delivery] || m.delivery) : '') + "</time></div>",
       )
       .join("") +
     "</div>" +

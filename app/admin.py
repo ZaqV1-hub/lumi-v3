@@ -7,6 +7,7 @@ from .schemas import TextInput, Settings, Knowledge
 from .conversations import conversation, messages, timestamp
 from .media_models import TenantPreferences, ContactGate
 from .spam import admission_lock, control
+from .whatsapp.models import Chat
 
 router = APIRouter()
 
@@ -24,6 +25,7 @@ def conversations(user=Depends(current_user)):
                 "id": c.id,
                 "status": c.status,
                 "name": db.get(Contact, c.contact_id).name,
+                "channel": 'whatsapp' if db.get(Chat, c.id) else 'simulator',
                 "created_at": timestamp(c.created_at),
                 "blocked": bool(
                     db.get(ContactGate, c.contact_id)

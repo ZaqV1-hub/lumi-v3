@@ -3,6 +3,7 @@ from datetime import timezone
 from sqlalchemy import select
 from .models import Conversation, Message, MessageAuthor, VisitorSession
 from .media_models import MessageImage
+from .whatsapp.models import Outbox
 
 
 def timestamp(value):
@@ -29,6 +30,7 @@ def messages(db, tenant_id, cid):
         {
             "id": m.id,
             "sender": m.sender,
+            "delivery": db.get(Outbox, m.id).status if db.get(Outbox, m.id) else None,
             "content": m.content,
             "created_at": timestamp(m.created_at),
             "image_id": db.get(MessageImage, m.id).image_id if db.get(MessageImage, m.id) else None,

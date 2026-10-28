@@ -13,12 +13,15 @@ from .client import router as client_router
 from .images import router as image_router
 from .media_models import ContactGate
 from sqlalchemy import update
+from .whatsapp import bridge
+from .whatsapp.config import load_config
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 @asynccontextmanager
 async def lifespan(_):
+    load_config()
     Base.metadata.create_all(engine)
     seed()
     with engine.begin() as connection:
