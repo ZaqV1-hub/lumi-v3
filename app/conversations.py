@@ -9,6 +9,7 @@ from .whatsapp.models import Outbox
 def timestamp(value):
     return (value if value.tzinfo else value.replace(tzinfo=timezone.utc)).isoformat()
 
+
 def conversation(db, tenant_id, cid):
     row = db.scalar(
         select(Conversation).where(
@@ -30,10 +31,15 @@ def messages(db, tenant_id, cid):
         {
             "id": m.id,
             "sender": m.sender,
+            "delivery_error": db.get(Outbox, m.id).error
+            if db.get(Outbox, m.id)
+            else "",
             "delivery": db.get(Outbox, m.id).status if db.get(Outbox, m.id) else None,
             "content": m.content,
             "created_at": timestamp(m.created_at),
-            "image_id": db.get(MessageImage, m.id).image_id if db.get(MessageImage, m.id) else None,
+            "image_id": db.get(MessageImage, m.id).image_id
+            if db.get(MessageImage, m.id)
+            else None,
             "name": (
                 db.get(MessageAuthor, m.id).name
                 if db.get(MessageAuthor, m.id)

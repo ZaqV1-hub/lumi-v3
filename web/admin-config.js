@@ -22,6 +22,7 @@ function renderCfg() {
 }
 const dirty = () =>
   draft.identity !== saved.identity ||
+  draft.greeting !== saved.greeting ||
   draft.max_pending !== saved.max_pending ||
   draft.tom !== saved.tom ||
   draft.tam !== saved.tam ||
@@ -45,7 +46,7 @@ function drawInstr() {
     `<div style="display:flex;flex-direction:column;gap:18px">
     <section class="card"><div class="card-h"><h2>Personalidade da Lumi</h2><p>Defina como a Lumi conversa com os clientes da sua empresa.</p></div>
       <div class="card-b">${optGroup("tom", "Tom", ["Alegre", "Neutro", "Formal"])}${optGroup("tam", "Tamanho das respostas", ["Curto", "Médio", "Detalhado"])}${optGroup("est", "Estilo", ["Objetivo", "Explicativo"])}</div></section>
-    <section class="card"><div class="card-h"><h2>Identidade da Lumi</h2></div><div class="card-b"><textarea class="input" id="identity">${esc(draft.identity)}</textarea></div></section><section class="card"><div class="card-h"><h2>Anti-spam</h2><p>Mensagens em andamento antes dos avisos e do bloqueio.</p></div><div class="card-b"><label for="maxPending">Limite de mensagens</label><input class="input" type="number" id="maxPending" min="1" max="10" value="${draft.max_pending}"><p>Após atingir o limite: aviso para aguardar, aviso de bloqueio e bloqueio persistente. O desbloqueio fica na conversa.</p></div></section><section class="card"><div class="card-h"><h2>Instruções livres</h2><p>Uma instrução por linha.</p></div>
+    <section class="card"><div class="card-h"><h2>Identidade da Lumi</h2></div><div class="card-b"><textarea class="input" id="identity">${esc(draft.identity)}</textarea></div></section><section class="card"><div class="card-h"><h2>Saudação rápida</h2><p>Resposta imediata para Oi, Olá e saudações simples. Use {nome} ou {empresa} para personalizar. Deixe vazio para a Lumi criar a resposta.</p></div><div class="card-b"><textarea class="input" id="greeting" maxlength="1000">${esc(draft.greeting)}</textarea></div></section><section class="card"><div class="card-h"><h2>Anti-spam</h2><p>Mensagens em andamento antes dos avisos e do bloqueio.</p></div><div class="card-b"><label for="maxPending">Limite de mensagens</label><input class="input" type="number" id="maxPending" min="1" max="10" value="${draft.max_pending}"><p>Após atingir o limite: aviso para aguardar, aviso de bloqueio e bloqueio persistente. O desbloqueio fica na conversa.</p></div></section><section class="card"><div class="card-h"><h2>Instruções livres</h2><p>Uma instrução por linha.</p></div>
       <div class="card-b"><textarea class="input" id="instr" aria-label="Instruções livres">${esc(draft.instr)}</textarea>
       <div class="note"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v5M10 6.2v.1" stroke-linecap="round"/></svg>Essas instruções complementam as regras fixas da Lumi e não substituem as regras de segurança da plataforma.</div></div></section>
     <div class="savebar"><span class="last" id="lastSaved"></span><div class="actions"><button class="btn btn-ghost" id="discard">Descartar</button><button class="btn btn-primary" id="save">Salvar alterações</button></div></div>
@@ -71,6 +72,7 @@ function drawInstr() {
           $("#content").scrollTop = y;
         }),
     );
+  $("#greeting").oninput = (e) => {draft.greeting = e.target.value; sync();};
   $("#identity").oninput = (e) => {
     draft.identity = e.target.value;
     sync();
@@ -91,6 +93,7 @@ function drawInstr() {
   $("#save").onclick = async () => {
     await api("/api/admin/settings", "PUT", {
       identity: draft.identity,
+      greeting: draft.greeting,
       personality: draft.instr,
       tone: draft.tom,
       length: draft.tam,

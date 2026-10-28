@@ -127,6 +127,7 @@ async function loadSettings() {
     est: s.style,
     instr: s.personality,
     identity: s.identity,
+    greeting: s.greeting || "",
     max_pending: s.max_pending,
     when: "banco de dados",
     by: me.name,
@@ -399,7 +400,7 @@ function detail(c) {
                 ? m.name || "Operador"
                 : "",
           ) +
-          (m.delivery ? ' · ' + esc({pending:'Envio pendente',sending:'Enviando ao WhatsApp',sent:'Enviado ao WhatsApp',failed:'Falha no envio ao WhatsApp'}[m.delivery] || m.delivery) : '') + "</time></div>",
+          (m.delivery ? ' · ' + esc({pending:'Envio pendente',sending:'Enviando ao WhatsApp',sent:'Aceito pela Meta',delivered:'Entregue no WhatsApp',read:'Lido no WhatsApp',failed:'Falha no envio ao WhatsApp'}[m.delivery] || m.delivery) : '') + (m.delivery_error ? '<br>' + esc(m.delivery_error) : '') + "</time></div>",
       )
       .join("") +
     "</div>" +

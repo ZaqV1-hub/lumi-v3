@@ -7,6 +7,7 @@ from .schemas import TextInput, Settings, Knowledge
 from .conversations import conversation, messages, timestamp
 from .media_models import TenantPreferences, ContactGate
 from .spam import admission_lock, control
+from .greetings import Greeting
 from .whatsapp.models import Chat
 
 router = APIRouter()
@@ -25,7 +26,7 @@ def conversations(user=Depends(current_user)):
                 "id": c.id,
                 "status": c.status,
                 "name": db.get(Contact, c.contact_id).name,
-                "channel": 'whatsapp' if db.get(Chat, c.id) else 'simulator',
+                "channel": "whatsapp" if db.get(Chat, c.id) else "simulator",
                 "created_at": timestamp(c.created_at),
                 "blocked": bool(
                     db.get(ContactGate, c.contact_id)
@@ -127,6 +128,9 @@ def settings(user=Depends(current_user)):
         prefs = db.get(TenantPreferences, user.tenant_id)
         return {
             "identity": tenant.identity,
+            "greeting": db.get(Greeting, user.tenant_id).text
+            if db.get(Greeting, user.tenant_id)
+            else "",
             "personality": tenant.personality,
             "tone": prefs.tone if prefs else "Neutro",
             "length": prefs.length if prefs else "Curto",
@@ -140,6 +144,11 @@ def save_settings(data: Settings, user=Depends(current_user)):
     with Session.begin() as db:
         tenant = db.get(Tenant, user.tenant_id)
         tenant.identity, tenant.personality = data.identity, data.personality
+        greeting = db.get(Greeting, user.tenant_id)
+        if not greeting:
+            greeting = Greeting(tenant_id=user.tenant_id)
+            db.add(greeting)
+        greeting.text = data.greeting
         prefs = db.get(TenantPreferences, user.tenant_id)
         if not prefs:
             prefs = TenantPreferences(tenant_id=user.tenant_id)

@@ -19,6 +19,7 @@ from .conversations import conversation, messages, visitor
 from .features import request_handover, asks_for_human
 from .prompt import build_prompt
 from .providers import reply
+from .greetings import quick_greeting
 from .media_models import ContactGate, ImageAsset, MessageImage, ConversationControl
 from .spam import admission_lock, admit, finish, generation_lock, control
 
@@ -198,6 +199,7 @@ def answer_message(token, data, cutoff, revision):
                 select(Feature).where(Feature.tenant_id == tid, Feature.enabled == True)
             )
         )
+        greeting = quick_greeting(db, tenant, contact, data.content)
         prompt = build_prompt(tenant, contact, facts, history)
         prompt += "\nFuncionalidades habilitadas: " + "; ".join(
             f.description for f in features if role in f.roles.split(",")
@@ -223,7 +225,7 @@ def answer_message(token, data, cutoff, revision):
         )
         prompt += "\nEnvie imagem apenas quando a instrução de uso corresponder ao pedido claro do cliente. Nunca invente IDs. Não envie imagens em conversas genéricas."
     try:
-        answer = reply(prompt)
+        answer = greeting if greeting else reply(prompt)
     except (RuntimeError, TimeoutError, subprocess.TimeoutExpired) as exc:
         raise HTTPException(
             503,

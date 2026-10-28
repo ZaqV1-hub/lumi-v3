@@ -58,3 +58,11 @@ Use um processo da Lumi e um do receptor. Reiniciar qualquer um limpa os contado
 `python -m unittest discover -s tests` cobre assinatura inválida, desafio de verificação, webhook sem admin público, deduplicação, tenant do número de entrada, contato com papel de cliente, geração em segundo plano, fila de entrega, nome do atendente, falha sem reenvio automático e upload de mídia. A prova final exige enviar e receber uma mensagem pelo número da Meta depois de configurar a conta.
 
 Referência de implementação: [exemplos oficiais da Meta para a WhatsApp Cloud API](https://github.com/fbsamples/whatsapp-api-examples).
+
+## Saudação rápida e confirmação de entrega
+
+Cada tenant pode cadastrar uma saudação rápida em Configurações > Instruções, usando `{nome}` e `{empresa}`. Ela responde apenas a saudações isoladas como “Oi”, “Olá” e “Bom dia”, sem iniciar uma inferência no Codex. Deixar o campo vazio devolve essas mensagens ao modelo. Pedidos com informações adicionais continuam seguindo o fluxo normal. Os exemplos de instalação usam textos guardados em `demo/tenants.json`; edições posteriores ficam em `tenant_greetings`, sem sobrescrita pelo seed.
+
+Os webhooks de status agora registram `sent`, `delivered`, `read` e `failed`. O admin distingue “Aceito pela Meta” de “Entregue no WhatsApp” e exibe o código da falha. Confirmações fora de ordem não rebaixam leitura para envio. Se o status chegar antes de a resposta HTTP de envio terminar, ele é reconciliado ao concluir a entrega.
+
+No teste desta instalação, a Meta aceitou a requisição, mas retornou depois o erro `130497`, informando uma restrição da conta empresarial para destinatários daquele país. O código não contorna essa restrição: ela precisa ser resolvida na conta da Meta. Até lá, a entrada de mensagens pode funcionar e a saída continuar bloqueada.

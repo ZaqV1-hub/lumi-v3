@@ -5,7 +5,7 @@ from ..db import Session
 from ..models import Contact, Conversation, VisitorSession, Message, MessageAuthor
 from ..media_models import MessageImage, ImageAsset
 from ..spam import admission_lock
-from .models import Channel, Chat, Inbox, Outbox
+from .models import Channel, Chat, Inbox, Outbox, DeliveryStatus
 from .graph import send
 
 
@@ -139,5 +139,41 @@ def deliver_one():
         )
     with Session.begin() as db:
         item = db.get(Outbox, mid)
-        item.status, item.external_id, item.error = status, result, error
+        reported = db.get(DeliveryStatus, result) if result else None
+        item.status, item.external_id, item.error = (
+            reported.status if reported else status,
+            result,
+            reported.error if reported else error,
+        )
     return True
+
+
+def record_delivery(phone_id, delivery):
+    external_id, status = delivery.get("id"), delivery.get("status")
+    if not external_id or status not in ("sent", "delivered", "read", "failed"):
+        return
+    rank = {"sent": 1, "delivered": 2, "read": 3, "failed": 4}
+    with admission_lock, Session.begin() as db:
+        if not db.get(Channel, phone_id):
+            return
+        row = db.get(DeliveryStatus, external_id)
+        if row and (row.phone_number_id != phone_id or rank[row.status] > rank[status]):
+            return
+        if not row:
+            row = DeliveryStatus(external_id=external_id, phone_number_id=phone_id)
+            db.add(row)
+        error = delivery.get("errors", [{}])[0] if delivery.get("errors") else {}
+        row.status = status
+        row.error = (
+            f"Meta {error.get('code')}: {str(error.get('title', 'Falha de entrega'))[:200]}"
+            if error
+            else ""
+        )
+        item = db.scalar(
+            select(Outbox)
+            .join(Message, Message.id == Outbox.message_id)
+            .join(Chat, Chat.id == Message.conversation_id)
+            .where(Outbox.external_id == external_id, Chat.phone_number_id == phone_id)
+        )
+        if item:
+            item.status, item.error = row.status, row.error

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+
 class Login(BaseModel):
     email: str
     password: str
@@ -14,11 +15,12 @@ class Start(BaseModel):
 
 
 class Settings(BaseModel):
+    greeting: str = Field(default="", max_length=1000)
     identity: str = Field(min_length=1, max_length=10000)
     personality: str = Field(min_length=1, max_length=10000)
-    tone: str = Field(default='Neutro', pattern='^(Alegre|Neutro|Formal)$')
-    length: str = Field(default='Curto', pattern='^(Curto|Médio|Detalhado)$')
-    style: str = Field(default='Objetivo', pattern='^(Objetivo|Explicativo)$')
+    tone: str = Field(default="Neutro", pattern="^(Alegre|Neutro|Formal)$")
+    length: str = Field(default="Curto", pattern="^(Curto|Médio|Detalhado)$")
+    style: str = Field(default="Objetivo", pattern="^(Objetivo|Explicativo)$")
     max_pending: int = Field(default=3, ge=1, le=10)
 
 

@@ -50,7 +50,7 @@ class FlowTest(unittest.TestCase):
                         self.assertEqual(
                             admin.post(
                                 "/api/client/" + token + "/messages",
-                                json={"content": "Oi"},
+                                json={"content": "Quais serviços vocês oferecem?"},
                             ).status_code,
                             200,
                         )
@@ -90,7 +90,7 @@ class FlowTest(unittest.TestCase):
                     with patch.object(client, "reply", side_effect=intervene):
                         admin.post(
                             "/api/client/" + token2 + "/messages",
-                            json={"content": "Olá"},
+                            json={"content": "Qual o horário?"},
                         )
                     self.assertFalse(
                         any(
@@ -255,6 +255,22 @@ class FlowTest(unittest.TestCase):
                     admin.post("/api/admin/conversations/" + spam_cid + "/unblock")
                     self.assertFalse(
                         admin.get("/api/client/" + spam_token).json()["blocked"]
+                    )
+                    settings = admin.get("/api/admin/settings").json()
+                    settings["greeting"] = "Bem-vindo, {nome}!"
+                    admin.put("/api/admin/settings", json=settings)
+                    with patch.object(client, "reply") as provider:
+                        response = admin.post(
+                            "/api/client/" + spam_token + "/messages",
+                            json={"content": "Oi"},
+                        )
+                        self.assertEqual(response.status_code, 200)
+                        provider.assert_not_called()
+                    self.assertEqual(
+                        admin.get("/api/client/" + spam_token).json()["messages"][-1][
+                            "content"
+                        ],
+                        "Bem-vindo, Teste spam!",
                     )
             finally:
                 main.engine.dispose()

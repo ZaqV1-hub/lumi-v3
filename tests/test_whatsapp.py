@@ -59,7 +59,9 @@ class WhatsAppTest(unittest.TestCase):
                                                 "id": "wamid.test-1",
                                                 "from": "5511999999999",
                                                 "type": "text",
-                                                "text": {"body": "Oi"},
+                                                "text": {
+                                                    "body": "Conte sobre a empresa"
+                                                },
                                             }
                                         ],
                                     },
@@ -178,6 +180,33 @@ class WhatsAppTest(unittest.TestCase):
                         ).error,
                         "Erro de teste",
                     )
+                bridge.record_delivery(
+                    "111", {"id": "wamid.response", "status": "delivered"}
+                )
+                bridge.record_delivery(
+                    "111", {"id": "wamid.response", "status": "sent"}
+                )
+                with Session() as db:
+                    self.assertEqual(
+                        db.scalar(
+                            select(Outbox).where(Outbox.external_id == "wamid.response")
+                        ).status,
+                        "delivered",
+                    )
+                bridge.record_delivery(
+                    "111",
+                    {
+                        "id": "wamid.response",
+                        "status": "failed",
+                        "errors": [{"code": 130497, "title": "Country restriction"}],
+                    },
+                )
+                with Session() as db:
+                    row = db.scalar(
+                        select(Outbox).where(Outbox.external_id == "wamid.response")
+                    )
+                    self.assertEqual(row.status, "failed")
+                    self.assertIn("130497", row.error)
             finally:
                 engine.dispose()
                 Session.configure(bind=original_engine)

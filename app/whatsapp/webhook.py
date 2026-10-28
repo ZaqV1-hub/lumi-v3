@@ -13,7 +13,7 @@ from ..db import Base, engine
 from ..media_models import ContactGate
 from .config import load_config
 from .models import Inbox
-from .bridge import receive, deliver_one
+from .bridge import receive, deliver_one, record_delivery
 
 load_config()
 pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="whatsapp")
@@ -92,6 +92,8 @@ async def incoming(request: Request):
                     continue
                 value = change.get("value", {})
                 phone_id = value.get("metadata", {}).get("phone_number_id", "")
+                for delivery in value.get("statuses", []):
+                    await asyncio.to_thread(record_delivery, phone_id, delivery)
                 names = {
                     c.get("wa_id"): c.get("profile", {}).get("name", "")
                     for c in value.get("contacts", [])

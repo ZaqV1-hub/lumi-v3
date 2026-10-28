@@ -5,6 +5,7 @@ from sqlalchemy import select
 from .access import password_hash
 from .db import Session
 from .models import Tenant, User, KnowledgeItem, Feature
+from .greetings import Greeting
 
 
 def seed():
@@ -32,6 +33,8 @@ def seed():
                         content=item["knowledge"],
                     )
                 )
+            if not db.get(Greeting, tenant.id):
+                db.add(Greeting(tenant_id=tenant.id, text=item.get("greeting", "")))
             if not db.scalar(select(User).where(User.email == item["email"])):
                 salt = secrets.token_hex(16)
                 db.add(

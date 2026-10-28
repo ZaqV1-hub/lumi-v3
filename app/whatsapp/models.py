@@ -37,6 +37,14 @@ class Inbox(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
+class DeliveryStatus(Base):
+    __tablename__ = "whatsapp_delivery_status"
+    external_id: Mapped[str] = mapped_column(String(240), primary_key=True)
+    phone_number_id: Mapped[str] = mapped_column(String(80))
+    status: Mapped[str] = mapped_column(String(30))
+    error: Mapped[str] = mapped_column(Text, default="")
+
+
 class Outbox(Base):
     __tablename__ = "whatsapp_outbox"
     message_id: Mapped[str] = mapped_column(String(36), primary_key=True)
