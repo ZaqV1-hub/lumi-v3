@@ -256,21 +256,20 @@ class FlowTest(unittest.TestCase):
                     self.assertFalse(
                         admin.get("/api/client/" + spam_token).json()["blocked"]
                     )
-                    settings = admin.get("/api/admin/settings").json()
-                    settings["greeting"] = "Bem-vindo, {nome}!"
-                    admin.put("/api/admin/settings", json=settings)
-                    with patch.object(client, "reply") as provider:
+                    with patch.object(
+                        client, "reply", return_value="Saudação gerada pela IA"
+                    ) as provider:
                         response = admin.post(
                             "/api/client/" + spam_token + "/messages",
                             json={"content": "Oi"},
                         )
                         self.assertEqual(response.status_code, 200)
-                        provider.assert_not_called()
+                        provider.assert_called_once()
                     self.assertEqual(
                         admin.get("/api/client/" + spam_token).json()["messages"][-1][
                             "content"
                         ],
-                        "Bem-vindo, Teste spam!",
+                        "Saudação gerada pela IA",
                     )
             finally:
                 main.engine.dispose()

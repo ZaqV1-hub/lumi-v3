@@ -127,7 +127,6 @@ async function loadSettings() {
     est: s.style,
     instr: s.personality,
     identity: s.identity,
-    greeting: s.greeting || "",
     max_pending: s.max_pending,
     when: "banco de dados",
     by: me.name,

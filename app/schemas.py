@@ -15,7 +15,6 @@ class Start(BaseModel):
 
 
 class Settings(BaseModel):
-    greeting: str = Field(default="", max_length=1000)
     identity: str = Field(min_length=1, max_length=10000)
     personality: str = Field(min_length=1, max_length=10000)
     tone: str = Field(default="Neutro", pattern="^(Alegre|Neutro|Formal)$")

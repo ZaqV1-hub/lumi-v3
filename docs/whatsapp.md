@@ -59,9 +59,7 @@ Use um processo da Lumi e um do receptor. Reiniciar qualquer um limpa os contado
 
 Referência de implementação: [exemplos oficiais da Meta para a WhatsApp Cloud API](https://github.com/fbsamples/whatsapp-api-examples).
 
-## Saudação rápida e confirmação de entrega
-
-Cada tenant pode cadastrar uma saudação rápida em Configurações > Instruções, usando `{nome}` e `{empresa}`. Ela responde apenas a saudações isoladas como “Oi”, “Olá” e “Bom dia”, sem iniciar uma inferência no Codex. Deixar o campo vazio devolve essas mensagens ao modelo. Pedidos com informações adicionais continuam seguindo o fluxo normal. Os exemplos de instalação usam textos guardados em `demo/tenants.json`; edições posteriores ficam em `tenant_greetings`, sem sobrescrita pelo seed.
+## Confirmação de entrega
 
 Os webhooks de status agora registram `sent`, `delivered`, `read` e `failed`. O admin distingue “Aceito pela Meta” de “Entregue no WhatsApp” e exibe o código da falha. Confirmações fora de ordem não rebaixam leitura para envio. Se o status chegar antes de a resposta HTTP de envio terminar, ele é reconciliado ao concluir a entrega.
 
