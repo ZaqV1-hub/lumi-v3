@@ -1,0 +1,13 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: lumi
+      POSTGRES_USER: lumi
+      POSTGRES_PASSWORD: lumi_local
+    ports:
+      - "5432:5432"
+    volumes:
+      - lumi_postgres:/var/lib/postgresql/data
+volumes:
+  lumi_postgres:

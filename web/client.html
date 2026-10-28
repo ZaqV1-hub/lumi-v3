@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>Converse com a Lumi</title
+  ><link rel="stylesheet" href="/static/app.css" />
+  <main class="client">
+    <header class="chathead">
+      <div>
+        <div class="brand">Lumi</div>
+        <span id="company"></span>
+      </div>
+      <span id="status" class="badge">Simulador do cliente</span>
+    </header>
+    <form id="start" class="card">
+      <h2>Iniciar conversa</h2>
+      <label
+        >Seu nome<input
+          id="name"
+          required
+          maxlength="120"
+          autocomplete="name" /></label
+      ><button>Conversar</button>
+    </form>
+    <div id="chat" hidden>
+      <div id="messages" class="messages"></div>
+      <form id="sendForm" class="compose">
+        <input id="text" required placeholder="Escreva sua mensagem" /><button
+          id="send"
+        >
+          Enviar
+        </button>
+      </form>
+      <div class="actions" style="padding: 0 16px 16px">
+        <button class="secondary" id="human">Quero falar com um humano</button
+        ><button class="secondary" id="new">Nova conversa</button>
+      </div>
+    </div>
+    <p id="notice" class="notice" role="status"></p>
+  </main>
+  <script src="/static/common.js"></script>
+  <script src="/static/client.js"></script>
+</html>
