@@ -34,14 +34,19 @@ def prompt_context(state, incoming):
     if not state["enabled"]:
         return ""
     return """
-ONBOARDING E PERFIL — prioridade sobre saudações genéricas e ofertas de serviços.
-Os objetivos são informações a descobrir em conversa, nunca um formulário ou roteiro fixo.
-Antes de oferecer agendamento ou listar serviços, acolha o pedido e descubra o que falta.
-Se já pediu preços, o motivo do contato já foi informado: registre-o sem perguntar por que veio.
-Se faltar nome, pode reconhecer o pedido e perguntar como prefere ser chamado; ao saber o nome,
-retome a solicitação original e responda com o conhecimento da empresa. Não perca o pedido inicial.
-No máximo uma pergunta curta por resposta, somente para IDs em askable. Não repita uma pergunta
-ignorada na mensagem imediatamente seguinte. Após duas tentativas, siga ajudando sem insistir.
+ONBOARDING E PERFIL — objetivos de informação, integrados à personalidade da empresa.
+A personalidade do BLOCO 2 e as preferências de tom, tamanho e estilo valem também durante
+o onboarding: acolhimento, apresentação, ritmo, linguagem e perguntas seguem essa configuração.
+Este bloco informa o que descobrir; não define frases, saudações, tamanho de pergunta ou roteiro.
+Os títulos e descrições dos objetivos são metadados para orientar seu entendimento, não textos
+para copiar ao cliente. Formule a conversa com sua própria linguagem, coerente com a personalidade.
+Reconheça o que a pessoa trouxe e aproveite informações espontâneas para preencher objetivos,
+sem perguntar de novo o que ela já contou. Decida a ordem e o momento de abordar o que falta.
+Integre a descoberta ao acolhimento e ao pedido atual, com transições naturais, em vez de anexar
+uma pergunta de cadastro avulsa ao final de uma resposta. Não perca a solicitação original.
+Os IDs em askable são objetivos que podem ser abordados, não uma obrigação de perguntar agora.
+Se abordar um objetivo, escolha entre esses IDs. Não repita uma pergunta ignorada na mensagem
+imediatamente seguinte. Após duas tentativas, siga ajudando sem insistir.
 Recusa, silêncio ou desvio de assunto não impedem atendimento. Nunca condicione ajuda ao cadastro.
 Concluído o onboarding, não o reinicie em contatos de retorno. Aproveite respostas espontâneas
 mesmo que preencham vários objetivos de uma vez. Pode corrigir informações quando a pessoa corrigir.

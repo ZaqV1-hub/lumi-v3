@@ -202,7 +202,10 @@ def answer_message(token, data, cutoff, revision):
         onboarding = profile_state(db, tid, contact.id)
         name_confirmed = not onboarding["enabled"] or any(
             f["updates_name"] and f["value"] for f in onboarding["fields"])
-        prompt = build_prompt(tenant, contact, facts, history, name_confirmed=name_confirmed)
+        prompt = build_prompt(
+            tenant, contact, facts, history, name_confirmed=name_confirmed,
+            onboarding_context=prompt_context(onboarding, data.content),
+        )
         prompt += "\nFuncionalidades habilitadas: " + "; ".join(
             f.description for f in features if role in f.roles.split(",")
         )
@@ -226,7 +229,6 @@ def answer_message(token, data, cutoff, revision):
             )
         )
         prompt += "\nEnvie imagem apenas quando a instrução de uso corresponder ao pedido claro do cliente. Nunca invente IDs. Não envie imagens em conversas genéricas."
-    prompt += prompt_context(onboarding, data.content)
     try:
         answer = reply(prompt)
     except (RuntimeError, TimeoutError, subprocess.TimeoutExpired) as exc:
