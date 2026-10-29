@@ -238,6 +238,13 @@ const statusLabel = (s) =>
     aguardando: "Pediu atendimento humano",
     humano: "Atendimento humano",
   })[s];
+function updateHandoverCount() {
+  const count = convos.filter((c) => c.status === "aguardando").length;
+  const badge = $("#handoverCount");
+  badge.textContent = count ? String(count) : "";
+  badge.hidden = count === 0;
+  badge.setAttribute("aria-label", `${count} ${count === 1 ? "pedido aguardando atendimento humano" : "pedidos aguardando atendimento humano"}`);
+}
 async function refresh(redraw = true) {
   if (!me || refreshing) return;
   refreshing = true;
@@ -245,6 +252,7 @@ async function refresh(redraw = true) {
     const data = await api("/api/admin/conversations");
     const changed = JSON.stringify(data) !== lastRows;
     convos = data;
+    updateHandoverCount();
     lastRows = JSON.stringify(data);
     if (redraw && changed && page() !== "configuracoes") {
       if (page() === "conversas") {
