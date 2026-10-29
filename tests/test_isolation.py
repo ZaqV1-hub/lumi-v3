@@ -20,13 +20,13 @@ class FlowTest(unittest.TestCase):
                     self.assertEqual(
                         admin.post(
                             "/api/login",
-                            json={"email": "isaac@rincao.local", "password": "wrong"},
+                            json={"email": "isaque@rincao.local", "password": "wrong"},
                         ).status_code,
                         401,
                     )
                     admin.post(
                         "/api/login",
-                        json={"email": "isaac@rincao.local", "password": "demo1234"},
+                        json={"email": "isaque@rincao.local", "password": "demo1234"},
                     )
                     other.post(
                         "/api/login",
@@ -75,7 +75,7 @@ class FlowTest(unittest.TestCase):
                         json={"content": "Como posso ajudar?"},
                     )
                     last = admin.get("/api/client/" + token).json()["messages"][-1]
-                    self.assertEqual(last["name"], "Isaac")
+                    self.assertEqual(last["name"], "Isaque")
                     self.assertEqual(last["sender"], "humano")
                     # Intervenção durante a inferência descarta a resposta da Lumi.
                     token2 = admin.post(

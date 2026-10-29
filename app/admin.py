@@ -8,6 +8,7 @@ from .conversations import conversation, messages, timestamp
 from .media_models import TenantPreferences, ContactGate
 from .spam import admission_lock, control
 from .whatsapp.models import Chat
+from .onboarding import profile_state
 
 router = APIRouter()
 
@@ -23,6 +24,7 @@ def conversations(user=Depends(current_user)):
         return [
             {
                 "id": c.id,
+                "profile": profile_state(db, user.tenant_id, c.contact_id),
                 "status": c.status,
                 "name": db.get(Contact, c.contact_id).name,
                 "channel": "whatsapp" if db.get(Chat, c.id) else "simulator",

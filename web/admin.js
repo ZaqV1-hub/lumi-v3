@@ -371,7 +371,7 @@ function detail(c) {
     (c.blocked
       ? '<button class="btn btn-danger btn-sm" id="unblock">Desbloquear contato</button>'
       : "") +
-    '</div></div><div class="thread">' +
+    '</div></div>' + renderProfile(c.profile) + '<div class="thread">' +
     c.messages
       .map(
         (m) =>

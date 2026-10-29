@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from .db import Base, engine
 from .seed import seed
 from .auth_routes import router as auth_router
+from .onboarding_routes import router as onboarding_router
 from .admin import router as admin_router
 from .client import router as client_router
 from .images import router as image_router
@@ -31,6 +32,7 @@ async def lifespan(_):
 
 app = FastAPI(title="Lumi", lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(onboarding_router)
 app.include_router(admin_router)
 app.include_router(client_router)
 app.include_router(image_router)

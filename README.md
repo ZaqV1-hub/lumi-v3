@@ -22,7 +22,7 @@ $venv = Join-Path $env:LOCALAPPDATA "Lumi-venv"
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Admin: <http://127.0.0.1:8000/admin>. Rincão: `isaac@rincao.local`, nome Isaac. Breve: `ana@breve.local`, nome Ana. A senha fictícia de ambos é `demo1234`. As senhas são armazenadas com PBKDF2 e salt; sessões usam cookie HttpOnly, SameSite e expiram em 24 horas.
+Admin: <http://127.0.0.1:8000/admin>. Rincão: `isaque@rincao.local`, nome Isaque. Breve: `ana@breve.local`, nome Ana. A senha fictícia de ambos é `demo1234`. As senhas são armazenadas com PBKDF2 e salt; sessões usam cookie HttpOnly, SameSite e expiram em 24 horas.
 
 Simulador do cliente Rincão: <http://127.0.0.1:8000/chat/rincao>. Breve: <http://127.0.0.1:8000/chat/breve>. Abra o simulador em outra aba, informe seu nome e converse. O cliente não usa o login do admin. Cada conversa recebe um token aleatório que permite acessar apenas aquela conversa. O admin identifica a empresa pelo login, nunca por um tenant enviado pela IA ou pelo navegador.
 
@@ -58,7 +58,7 @@ Se a fila esvaziar antes do bloqueio, os avisos são zerados. O bloqueio persist
 
 ## Contexto e tempo de resposta
 
-O prompt usa identidade e funcionalidades autorizadas, personalidade e conhecimento do tenant, seguidos do histórico recente. O conhecimento textual ainda é incluído como contexto completo, sem busca vetorial. Configurações permitem editar instruções, personalidade, conhecimento e imagens. O onboarding continua como próxima etapa.
+O prompt usa identidade e funcionalidades autorizadas, personalidade e conhecimento do tenant, seguidos do histórico recente. O conhecimento textual ainda é incluído como contexto completo, sem busca vetorial. Configurações permitem editar instruções, personalidade, conhecimento e imagens. O onboarding é configurável por tenant em Configurações > Onboarding; consulte a seção abaixo.
 
 ## WhatsApp de teste
 
@@ -76,3 +76,14 @@ python -m unittest discover -s tests
 ```
 
 O teste confere login, acesso entre tenants, contexto, handover, avisos de entrada e saída, nome do atendente, descarte de respostas antigas, upload e envio de imagens e proibição de imagem de outro tenant. A regra de spam é verificada com três requisições simultâneas, dois avisos, bloqueio silencioso posterior e desbloqueio pelo admin. O Codex também foi testado com a saída estruturada de seleção de imagem. O serviço HTTP de handover foi verificado com os dois processos locais.
+
+
+## Onboarding e perfil
+
+Em Configurações > Onboarding, adicione objetivos com título, descrição, obrigatoriedade e, quando pertinente, a opção de atualizar o nome do contato. Não há perguntas fixas nem informações de empresas na lógica do atendimento. A Lumi pode registrar o motivo do contato na primeira mensagem e perguntar somente como a pessoa prefere ser chamada. Ao receber o nome, retoma o pedido original. Recusas e perguntas ignoradas não bloqueiam ajuda: não deve repetir a mesma pergunta em mensagens consecutivas e deixa de sugeri-la após duas tentativas.
+
+O nome vindo do WhatsApp ou do simulador é apenas identificação do canal, nunca confirmação de nome para o onboarding. O perfil confirma informações fornecidas pela própria pessoa. O modelo sugere valores com citações da mensagem atual; o servidor exige que o valor apareça na evidência e que a evidência apareça na mensagem. Objetivos de outro tenant e valores sem evidência são descartados. Essa validação reduz invenções, mas a interpretação semântica ainda depende do modelo.
+
+Objetivos ficam em `onboarding_objectives`, valores e tentativas em `profile_values`, e a conclusão persistente em `contact_profiles`. As tabelas são adicionadas sem alterar as existentes. O perfil aparece na conversa do admin. Uma vez concluído, não se reinicia automaticamente quando os objetivos são editados. Handover e anti-spam continuam tendo precedência. Clientes antigos sem perfil confirmado passam pelo onboarding no próximo contato; nenhum nome anterior é confirmado automaticamente.
+
+Para instalar o exemplo do Rincão uma única vez, depois de iniciar a aplicação, execute `python -m app.onboarding_setup --tenant rincao --file demo/rincao-onboarding.json`. O comando recusa sobrescrever objetivos existentes. Esses exemplos ficam no banco e podem ser editados pelo admin. A regra de identidade do WhatsApp mantém o perfil no contato nas próximas mensagens; uma nova conversa do simulador cria um novo contato de teste.

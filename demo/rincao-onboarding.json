@@ -1,0 +1,4 @@
+[
+  {"title": "Como prefere ser chamado", "description": "Descobrir diretamente com a pessoa como ela prefere ser chamada. Não usar o nome do WhatsApp como confirmação.", "required": true, "updates_name": true},
+  {"title": "Motivo do contato", "description": "Entender o que a pessoa procura no Rincão. Aproveitar o pedido espontâneo, como consultar valores de ingressos, sem repetir a pergunta.", "required": true, "updates_name": false}
+]

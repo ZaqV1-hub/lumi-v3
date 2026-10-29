@@ -4,6 +4,7 @@ function renderCfg() {
     ["instrucoes", "Instruções"],
     ["kb", "Base de conhecimento"],
     ["imgs", "Imagens"],
+    ["onboarding", "Onboarding"],
   ];
   $("#content").innerHTML =
     `<div class="cfg ${ui.tab === "imgs" ? "wide" : ""}">
@@ -18,7 +19,7 @@ function renderCfg() {
           renderCfg();
         }),
     );
-  ({ instrucoes: drawInstr, kb: drawKb, imgs: drawImgs })[ui.tab]();
+  ({ instrucoes: drawInstr, kb: drawKb, imgs: drawImgs, onboarding: drawOnboarding })[ui.tab]();
 }
 const dirty = () =>
   draft.identity !== saved.identity ||

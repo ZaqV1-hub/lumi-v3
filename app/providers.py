@@ -14,8 +14,14 @@ def reply(prompt: str) -> str:
             "reply": {"type": "string"},
             "action": {"type": "string", "enum": ["none", "handover", "send_image"]},
             "image_id": {"type": ["string", "null"]},
+            "asked_objective_id": {"type": ["string", "null"]},
+            "profile_updates": {"type": "array", "items": {
+                "type": "object", "properties": {
+                    "objective_id": {"type": "string"}, "value": {"type": "string"},
+                    "evidence": {"type": "string"}},
+                "required": ["objective_id", "value", "evidence"], "additionalProperties": False}},
         },
-        "required": ["reply", "action", "image_id"],
+        "required": ["reply", "action", "image_id", "profile_updates", "asked_objective_id"],
         "additionalProperties": False,
     }
     with tempfile.TemporaryDirectory(prefix="lumi-codex-") as folder:
@@ -72,7 +78,7 @@ def reply(prompt: str) -> str:
             )
         try:
             answer = json.loads(result.stdout)
-            return {"reply": answer["reply"].strip(), "action": answer["action"], "image_id": answer.get('image_id')}
+            return {"reply": answer["reply"].strip(), "action": answer["action"], "image_id": answer.get('image_id'), "profile_updates": answer.get('profile_updates', []), "asked_objective_id": answer.get('asked_objective_id')}
         except (json.JSONDecodeError, KeyError, TypeError) as exc:
             raise RuntimeError(
                 "O Codex devolveu uma resposta fora do formato esperado."

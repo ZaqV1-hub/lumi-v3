@@ -19,6 +19,7 @@ from .conversations import conversation, messages, visitor
 from .features import request_handover, asks_for_human
 from .prompt import build_prompt
 from .providers import reply
+from .onboarding import profile_state, prompt_context, save_profile
 from .media_models import ContactGate, ImageAsset, MessageImage, ConversationControl
 from .spam import admission_lock, admit, finish, generation_lock, control
 
@@ -198,7 +199,10 @@ def answer_message(token, data, cutoff, revision):
                 select(Feature).where(Feature.tenant_id == tid, Feature.enabled == True)
             )
         )
-        prompt = build_prompt(tenant, contact, facts, history)
+        onboarding = profile_state(db, tid, contact.id)
+        name_confirmed = not onboarding["enabled"] or any(
+            f["updates_name"] and f["value"] for f in onboarding["fields"])
+        prompt = build_prompt(tenant, contact, facts, history, name_confirmed=name_confirmed)
         prompt += "\nFuncionalidades habilitadas: " + "; ".join(
             f.description for f in features if role in f.roles.split(",")
         )
@@ -222,6 +226,7 @@ def answer_message(token, data, cutoff, revision):
             )
         )
         prompt += "\nEnvie imagem apenas quando a instrução de uso corresponder ao pedido claro do cliente. Nunca invente IDs. Não envie imagens em conversas genéricas."
+    prompt += prompt_context(onboarding, data.content)
     try:
         answer = reply(prompt)
     except (RuntimeError, TimeoutError, subprocess.TimeoutExpired) as exc:
@@ -230,6 +235,7 @@ def answer_message(token, data, cutoff, revision):
             "Não consegui responder agora. Sua mensagem foi salva; tente novamente em instantes.",
         ) from exc
     image_id = None
+    profile_answer = answer if isinstance(answer, dict) else {}
     if isinstance(answer, dict):
         if answer.get("action") == "handover":
             return handover(tid, cid, role, data.content)
@@ -252,6 +258,7 @@ def answer_message(token, data, cutoff, revision):
             .values(status="lumi")
         ).rowcount
         if allowed:
+            save_profile(db, tid, contact_id=contact.id, answer=profile_answer, incoming=data.content)
             image = (
                 db.scalar(
                     select(ImageAsset).where(
