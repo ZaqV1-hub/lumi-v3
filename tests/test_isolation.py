@@ -57,7 +57,9 @@ class FlowTest(unittest.TestCase):
                         self.assertNotIn(
                             "assistente da Breve", provider.call_args.args[0]
                         )
-                    with patch.object(client, "request_handover") as feature:
+                    with patch.object(client, "request_handover") as feature, patch.object(
+                        client, "reply", return_value={"reply": "Resposta gerada pelo modelo", "action": "handover"}
+                    ):
                         admin.post(
                             "/api/client/" + token + "/messages",
                             json={"content": "Quero falar com um humano"},

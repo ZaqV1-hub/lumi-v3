@@ -36,7 +36,7 @@ As tabelas são criadas na inicialização. Novas tabelas desta etapa são adici
 
 ## Atendimento humano
 
-Um pedido explícito como “quero falar com um humano” segue diretamente para o contrato de handover, sem gastar uma inferência. Outras mensagens passam pelo modelo, que pode retornar a ação de handover somente para pedidos claros. O servidor valida a funcionalidade e o papel do contato. Há um contrato específico de handover nesta primeira versão; ainda não é um executor genérico de ferramentas ou MCP.
+Um pedido explícito como “quero falar com um humano” é detectado pelo código, mas passa pelo modelo para gerar a resposta com a personalidade do tenant. A fala é salva e colocada na fila do canal antes da chamada ao serviço de handover, sem aviso fixo nem pergunta de confirmação. Outras mensagens passam pelo modelo, que pode retornar a ação de handover somente para pedidos claros. O servidor valida a funcionalidade e o papel do contato. Há um contrato específico de handover nesta primeira versão; ainda não é um executor genérico de ferramentas ou MCP.
 
 O contrato fica em `tenant_features`, com descrição, endpoint e papéis autorizados. `services/handover.py` roda em processo separado e recebe chamadas HTTP autenticadas. `HANDOVER_SECRET` deve ter o mesmo valor nos dois processos; o padrão é uma credencial fictícia local. O serviço não importa código da Lumi. Cada chamada externa é registrada em `feature_calls` com tenant, conversa, parâmetros, resultado e duração.
 
@@ -64,7 +64,7 @@ O prompt usa identidade e funcionalidades autorizadas, personalidade e conhecime
 
 O receptor da Cloud API, o vínculo por número e a entrega de textos e imagens estão implementados. A ativação depende de configurar o aplicativo e o número de teste na Meta. Consulte [a configuração do WhatsApp](docs/whatsapp.md). O receptor roda na porta 8002, separada do admin, e é o único serviço que deve ser exposto pelo túnel HTTPS.
 
-O provider fica em `app/providers.py` e usa Codex CLI com pasta temporária, ambiente reduzido e esforço de raciocínio baixo. No teste local, uma resposta simples levou aproximadamente 6 segundos, contra aproximadamente 29 segundos na versão anterior; a duração varia com o modelo e o serviço. O handover explícito levou cerca de 0,4 segundo. O CLI ainda inicia um processo a cada inferência; uma API de modelo ou conexão persistente poderá reduzir esse custo depois. Defina `LUMI_PROVIDER=demo` para resposta fixa sem usar o Codex.
+O provider fica em `app/providers.py` e usa Codex CLI com pasta temporária, ambiente reduzido e esforço de raciocínio baixo. No teste local, uma resposta simples levou aproximadamente 6 segundos, contra aproximadamente 29 segundos na versão anterior; a duração varia com o modelo e o serviço. O handover explícito também aguarda uma resposta do modelo antes do encaminhamento; por isso, não usa mais o atalho sem inferência. O CLI ainda inicia um processo a cada inferência; uma API de modelo ou conexão persistente poderá reduzir esse custo depois. Defina `LUMI_PROVIDER=demo` para resposta fixa sem usar o Codex.
 
 Este laboratório usa dados fictícios e serve apenas em localhost. O Codex CLI possui ferramentas locais; a pasta temporária e o modo de leitura não garantem isolamento completo do computador. Antes de dados reais, precisamos de um provider sem acesso ao sistema de arquivos ou um ambiente isolado para o processo, além de credenciais e operação adequadas à implantação.
 

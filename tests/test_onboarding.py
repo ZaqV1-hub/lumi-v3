@@ -51,6 +51,34 @@ class OnboardingTest(unittest.TestCase):
     def state(self):
         return self.admin.get("/api/admin/conversations/" + self.cid + "/profile").json()
 
+    def test_handover_keeps_model_reply_before_external_call(self):
+        from app import client
+        for text, action in [("Quero falar com um humano", "none"), ("Pode me transferir?", "handover")]:
+            with self.subTest(action=action):
+                token = self.admin.post("/api/public/rincao/start", json={"name": "Teste"}).json()["token"]
+                def inspect_call(*args):
+                    chat = self.admin.get("/api/client/" + token).json()
+                    self.assertEqual(chat["status"], "aguardando")
+                    self.assertEqual([m["sender"] for m in chat["messages"]], ["cliente", "lumi"])
+                    self.assertEqual(chat["messages"][-1]["content"], "Texto livre do modelo")
+                with patch.object(client, "reply", return_value={"reply": "Texto livre do modelo", "action": action}) as model, patch.object(client, "request_handover", side_effect=inspect_call) as feature:
+                    self.admin.post("/api/client/" + token + "/messages", json={"content": text}).raise_for_status()
+                    model.assert_called_once()
+                    feature.assert_called_once()
+
+    def test_handover_discards_reply_when_operator_intervenes(self):
+        from app import client
+        def intervene(_):
+            self.admin.post("/api/admin/conversations/" + self.cid + "/claim").raise_for_status()
+            self.admin.post("/api/admin/conversations/" + self.cid + "/release").raise_for_status()
+            return {"reply": "Resposta antiga", "action": "handover"}
+        with patch.object(client, "reply", side_effect=intervene), patch.object(client, "request_handover") as feature:
+            self.admin.post("/api/client/" + self.token + "/messages", json={"content": "Quero falar com um humano"}).raise_for_status()
+            feature.assert_not_called()
+        chat = self.admin.get("/api/client/" + self.token).json()
+        self.assertEqual(chat["status"], "lumi")
+        self.assertFalse(any(m["sender"] == "lumi" for m in chat["messages"]))
+
     def test_spontaneous_intent_name_completion_and_return(self):
         prompt = self.send("Quero valores dos ingressos", [{"objective_id": self.reason,
             "value": "valores dos ingressos", "evidence": "Quero valores dos ingressos"}], self.name)

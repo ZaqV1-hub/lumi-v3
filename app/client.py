@@ -60,10 +60,12 @@ def client_messages(token: str):
         }
 
 
-def handover(tid, cid, role, reason):
+def handover(tid, cid, role, reason, response, revision):
     from sqlalchemy import update
 
-    with Session.begin() as db:
+    with admission_lock, Session.begin() as db:
+        if control(db, cid).revision != revision:
+            return {"ok": True}
         feature = db.scalar(
             select(Feature).where(
                 Feature.tenant_id == tid,
@@ -84,6 +86,8 @@ def handover(tid, cid, role, reason):
             )
             .values(status="aguardando")
         ).rowcount
+        if changed:
+            db.add(Message(tenant_id=tid, conversation_id=cid, sender="lumi", content=response))
     if not changed:
         return {"ok": True}
     try:
@@ -94,15 +98,6 @@ def handover(tid, cid, role, reason):
             503,
             "Seu pedido ficou registrado. A confirmação do atendimento está indisponível no momento.",
         ) from exc
-    with Session.begin() as db:
-        db.add(
-            Message(
-                tenant_id=tid,
-                conversation_id=cid,
-                sender="sistema",
-                content="Seu pedido de atendimento humano foi registrado. A equipe vai responder por aqui.",
-            )
-        )
     return {"ok": True}
 
 
@@ -172,8 +167,7 @@ def answer_message(token, data, cutoff, revision):
         role = contact.role
     if human:
         return {"ok": True}
-    if asks_for_human(data.content):
-        return handover(tid, cid, role, data.content)
+    explicit_handover = asks_for_human(data.content)
     with Session() as db:
         tenant = db.get(Tenant, tid)
         contact = db.get(Contact, conversation(db, tid, cid).contact_id)
@@ -239,11 +233,11 @@ def answer_message(token, data, cutoff, revision):
     image_id = None
     profile_answer = answer if isinstance(answer, dict) else {}
     if isinstance(answer, dict):
-        if answer.get("action") == "handover":
-            return handover(tid, cid, role, data.content)
         if answer.get("action") == "send_image":
             image_id = answer.get("image_id")
         answer = answer["reply"]
+    if explicit_handover or profile_answer.get("action") == "handover":
+        return handover(tid, cid, role, data.content, answer, revision)
     with admission_lock, Session.begin() as db:
         # Compare-and-set no banco: resposta em andamento não pode passar pelo handover.
         from sqlalchemy import update
