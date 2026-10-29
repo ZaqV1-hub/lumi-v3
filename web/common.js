@@ -14,6 +14,24 @@ async function api(path, method = "GET", body) {
     );
   return data;
 }
+function appendMessageText(element, text) {
+  let start = 0;
+  for (const match of text.matchAll(/https?:\/\/[^\s<>"']+/g)) {
+    let url = match[0].replace(/[.,!?;:]+$/, "");
+    while (url.endsWith(")") && url.split(")").length > url.split("(").length) {
+      url = url.slice(0, -1);
+    }
+    element.append(document.createTextNode(text.slice(start, match.index)));
+    const link = document.createElement("a");
+    link.href = url;
+    link.textContent = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    element.append(link, document.createTextNode(match[0].slice(url.length)));
+    start = match.index + match[0].length;
+  }
+  element.append(document.createTextNode(text.slice(start)));
+}
 function drawMessages(items) {
   const nearBottom =
     $("messages").scrollHeight -
@@ -29,7 +47,7 @@ function drawMessages(items) {
         name.textContent = m.name;
         el.append(name);
       }
-      el.append(document.createTextNode(m.content));
+      appendMessageText(el, m.content);
       if (m.image_url) {
         const link = document.createElement('a');
         link.href = m.image_url;
