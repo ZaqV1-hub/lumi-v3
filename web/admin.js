@@ -1,4 +1,6 @@
 let me,
+  simulationRoles = [],
+  contactRoles = [{role:'cliente',label:'Cliente'},{role:'gestor',label:'Gestor'},{role:'atendente',label:'Atendente'}],
   convos = [],
   kb = [],
   imgs = [],
@@ -86,8 +88,13 @@ function openModal(html) {
   return close;
 }
 
+function adminPath(path) {
+  const tid=new URLSearchParams(location.search).get('tenant');
+  if (!tid || !(path.startsWith('/api/admin/') || path==='/api/me')) return path;
+  return path+(path.includes('?')?'&':'?')+'tenant='+encodeURIComponent(tid);
+}
 async function api(path, method = "GET", body) {
-  const r = await fetch(path, {
+  const r = await fetch(adminPath(path), {
     method,
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -116,10 +123,12 @@ async function loadKnowledge() {
 async function loadImages() {
   imgs = (await api("/api/admin/images")).map((i) => ({
     ...i,
+    src: adminPath(i.src),
     d: "Salvo no banco",
   }));
 }
 async function loadSettings() {
+  contactRoles = await api('/api/admin/role-instructions');
   const s = await api("/api/admin/settings");
   saved = {
     tom: s.tone,
@@ -141,7 +150,7 @@ $("#pwToggle").onclick = () => {
   $("#pwToggle").textContent = p.type === "password" ? "Mostrar" : "Ocultar";
 };
 $("#forgot").onclick = () =>
-  toast("Neste ambiente de teste, use a senha demo1234.");
+  toast("Solicite a redefinição de senha à equipe Brevia.");
 $("#loginForm").onsubmit = async (e) => {
   e.preventDefault();
   try {
@@ -176,7 +185,11 @@ $("#logout").onclick = async () => {
 };
 document
   .querySelectorAll("[data-support]")
-  .forEach((b) => (b.onclick = () => toast("Ambiente local de teste.")));
+  .forEach((b) => (b.onclick = () => {
+    if(!me){toast('Solicite seu acesso à equipe Brevia.');return;}
+    const close=openModal('<div class="modal"><h2>Reportar problema</h2><label>Título<input class="input" id="reportTitle" maxlength="160"></label><label>Descrição<textarea class="input" id="reportDescription" maxlength="4000"></textarea></label><p id="reportError" role="alert"></p><button class="btn btn-primary" id="reportSend">Enviar à Brevia</button></div>');
+    $('#reportSend').onclick=async()=>{try{await api('/api/admin/problems','POST',{title:$('#reportTitle').value,description:$('#reportDescription').value,priority:'media'});close();toast('Problema registrado para a equipe Brevia.');}catch(error){$('#reportError').textContent=error.message;}};
+  }));
 window.addEventListener("hashchange", () => {
   if (me) route();
 });
@@ -186,6 +199,7 @@ document.querySelector('.nav a[data-route="conversas"]').addEventListener('click
 async function boot() {
   try {
     me = await api("/api/me");
+    if(me.must_change_password || (me.role==='brevia' && !new URLSearchParams(location.search).get('tenant'))){location.replace('/admin');return;}
   } catch {
     me = null;
     $("#login").hidden = false;
@@ -193,8 +207,12 @@ async function boot() {
     return;
   }
   $("#login").hidden = true;
-  $("#app").hidden = false;
+  simulationRoles = await api('/api/admin/simulations/roles');
+  $("#usageNav").hidden=me.role!=="brevia";
+  $("#app").hidden = true;
   $(".tenant b").textContent = me.tenant;
+  $(".tenant .status").textContent=me.lumi_enabled?"Lumi ativa":"Lumi desativada";
+  $(".tenant .status").classList.toggle("off",!me.lumi_enabled);
   $(".tenant .av").textContent = me.tenant.slice(0, 2).toUpperCase();
   $("#userBtn .name").textContent = me.name;
   $("#userBtn .av").textContent = me.name[0];
@@ -203,12 +221,14 @@ async function boot() {
   await loadSettings();
   await refresh(false);
   route();
+  $("#app").hidden = false;
 }
 function page() {
   return (location.hash || "#dashboard").slice(1);
 }
 function route() {
-  const p = page();
+  let p = page();
+  if(p==="consumo"&&me.role!=="brevia"){p="dashboard";history.replaceState(null,"",location.pathname+location.search+"#dashboard");}
   document.body.classList.remove("nav-open");
   closeUserMenu();
   document
@@ -221,6 +241,7 @@ function route() {
       dashboard: "Dashboard",
       conversas: "Conversas",
       configuracoes: "Configurações da Lumi",
+      consumo: "Consumo e velocidade",
     }[p] || "Dashboard";
   $("#pgSub").textContent =
     me.tenant +
@@ -228,7 +249,8 @@ function route() {
     (p === "conversas"
       ? "Atendimentos e intervenção humana"
       : "Administração da assistente");
-  if (p === "configuracoes") renderCfg();
+  if (p === "consumo") drawUsage();
+  else if (p === "configuracoes") renderCfg();
   else if (p === "conversas") renderConvos();
   else renderDash();
 }
@@ -254,7 +276,7 @@ async function refresh(redraw = true) {
     convos = data;
     updateHandoverCount();
     lastRows = JSON.stringify(data);
-    if (redraw && changed && page() !== "configuracoes") {
+    if (redraw && changed && !["configuracoes","consumo"].includes(page())) {
       if (page() === "conversas") {
         const draftText = $("#humanText")?.value || "";
         const focus = document.activeElement?.id;
@@ -275,7 +297,7 @@ function renderConvos() {
   const text = $("#humanText")?.value || "";
   const waiting = convos.filter((c) => c.status === "aguardando");
   $("#content").innerHTML =
-    '<div class="wrap">' +
+    '<div class="wrap"><div class="simulation-links">' + simulationRoles.map(r=>'<a class="btn btn-ghost" href="/chat/'+encodeURIComponent(me.slug)+'?tenant='+encodeURIComponent(me.tenant_id)+'&simulation='+encodeURIComponent(r.role)+'" target="_blank" rel="noopener">Simular '+esc(r.label)+'</a>').join('')+'</div>' +
     (waiting.length
       ? '<div class="notice-live" role="status">' +
         waiting
@@ -315,7 +337,7 @@ function drawConvoBody() {
           c.id +
           '" aria-current="' +
           (c.id === ui.conv) +
-          '"><span class="top"><span class="pill wa">' + (c.channel === 'whatsapp' ? 'WhatsApp' : 'Simulador') + '</span></span><b>' +
+          '"><span class="top"><span class="pill wa">' + (c.channel === 'whatsapp' ? 'WhatsApp' : c.channel === 'instagram' ? 'Instagram' : c.channel === 'instagram_comment' ? 'Comentário Instagram' : 'Simulador') + '</span></span><b>' +
           esc(c.name) +
           '</b><span class="last">' +
           esc(c.messages.at(-1)?.content || "Conversa iniciada") +
@@ -338,6 +360,11 @@ function drawConvoBody() {
       }),
   );
   if (!c) return;
+  $("#contactRole").onchange = async (e) => {
+    await api("/api/admin/conversations/" + c.id + "/role", "PUT", {role: e.target.value});
+    await refresh();
+    toast("Papel do contato atualizado.");
+  };
   $(".back").onclick = () => {
     ui.mobileDetail = false;
     drawConvoBody();
@@ -379,7 +406,9 @@ function detail(c) {
     (c.blocked
       ? '<button class="btn btn-danger btn-sm" id="unblock">Desbloquear contato</button>'
       : "") +
-    '</div></div>' + renderProfile(c.profile) + '<div class="thread">' +
+    '</div></div><div class="contact-role"><label for="contactRole">Papel do contato</label><select class="input" id="contactRole">' +
+    contactRoles.filter(r=>r.role!=='administrador'||me.role==='brevia').map(r => '<option value="' + esc(r.role) + '"' + ((c.role || "cliente") === r.role ? ' selected' : '') + '>' + esc(r.label) + '</option>').join("") +
+    '</select></div>' + renderProfile(c.profile) + '<div class="thread">' +
     c.messages
       .map(
         (m) =>
@@ -392,12 +421,9 @@ function detail(c) {
           '">' +
           (m.name ? "<strong>" + esc(m.name) + "</strong>" : "") +
           esc(m.content) +
+          (m.attachment_kind === 'image' ? '<a href="'+esc(adminPath(m.attachment_url))+'" target="_blank" rel="noopener"><img src="'+esc(adminPath(m.attachment_url))+'" alt="Imagem enviada pelo cliente"></a>' : m.attachment_kind === 'audio' ? '<audio controls preload="metadata" src="'+esc(adminPath(m.attachment_url))+'" style="display:block;max-width:100%;margin-top:8px"></audio>' : '') +
           (m.image_id
-            ? '<a href="/api/admin/images/' +
-              m.image_id +
-              '/file" target="_blank"><img src="/api/admin/images/' +
-              m.image_id +
-              '/file" alt="Imagem enviada pela Lumi"></a>'
+            ? '<a href="'+esc(adminPath('/api/admin/images/'+m.image_id+'/file'))+'" target="_blank"><img src="'+esc(adminPath('/api/admin/images/'+m.image_id+'/file'))+'" alt="Imagem enviada pela Lumi"></a>'
             : "") +
           "<time>" +
           esc(

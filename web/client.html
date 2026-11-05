@@ -1,44 +1,63 @@
 <!doctype html>
-<html lang="pt-BR">
-  <meta charset="utf-8" /><meta
-    name="viewport"
-    content="width=device-width,initial-scale=1"
-  /><title>Converse com a Lumi</title
-  ><link rel="stylesheet" href="/static/app.css" />
-  <main class="client">
-    <header class="chathead">
-      <div>
-        <div class="brand">Lumi</div>
-        <span id="company"></span>
-      </div>
-      <span id="status" class="badge">Simulador do cliente</span>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Chat de teste Lumi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/static/client.css">
+<link rel="stylesheet" href="/static/operator-workspace.css"></head><body><div class="page">
+  <div class="app" id="app">
+    <header class="top">
+      <div class="av" aria-hidden="true">L</div>
+      <div class="who"><h1>Lumi</h1><p id="company"></p></div>
+      <span class="pill on" id="status">Lumi ativa</span>
+      <button class="tbtn" id="fresh" type="button" aria-label="Nova conversa"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4v12M4 10h12"/></svg><span>Nova conversa</span></button>
     </header>
-    <form id="start" class="card">
-      <h2>Iniciar conversa</h2>
-      <label
-        >Seu nome<input
-          id="name"
-          required
-          maxlength="120"
-          autocomplete="name" /></label
-      ><button>Conversar</button>
-    </form>
-    <div id="chat" hidden>
-      <div id="messages" class="messages"></div>
-      <form id="sendForm" class="compose">
-        <input id="text" required placeholder="Escreva sua mensagem" /><button
-          id="send"
-        >
-          Enviar
-        </button>
-      </form>
-      <div class="actions" style="padding: 0 16px 16px">
-        <button class="secondary" id="human">Quero falar com um humano</button
-        ><button class="secondary" id="new">Nova conversa</button>
-      </div>
+
+    <div class="wrap"><div class="thread" id="thread" role="log" aria-live="polite" aria-label="Conversa com a Lumi" tabindex="0"></div><button class="jump" id="jump" type="button" hidden>Nova mensagem ↓</button></div>
+
+    <div class="tray" id="tray" hidden>
+      <div class="th"><img id="trayImg" alt="Imagem anexada"></div>
+      <div class="meta"><b id="trayName"></b><span id="traySize"></span><span> · adicione uma legenda se quiser</span></div>
+      <button class="x" id="trayX" type="button" aria-label="Remover imagem"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
     </div>
-    <p id="notice" class="notice" role="status"></p>
-  </main>
-  <script src="/static/common.js"></script>
-  <script src="/static/client.js"></script>
-</html>
+
+    <div class="bar">
+      <form class="composer" id="composer">
+        <div class="field">
+          <button class="ib" id="attach" type="button" aria-label="Anexar imagem" title="Anexar imagem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5l-8.2 8.2a5 5 0 01-7.1-7.1l8.5-8.5a3.4 3.4 0 014.8 4.8l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.8-7.8"/></svg></button>
+          <label class="sr" for="msg">Mensagem</label>
+          <textarea id="msg" rows="1" maxlength="10000" placeholder="Escreva uma mensagem"></textarea>
+        </div>
+        <button class="go" id="go" type="button" aria-label="Gravar áudio"></button>
+        <input type="file" id="file" accept="image/png,image/jpeg,image/webp,audio/*" hidden>
+      </form>
+      <div class="rec" id="rec" hidden>
+        <button class="x" id="recX" type="button" aria-label="Cancelar gravação" style="width:46px;height:46px"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.6L14 6M8.5 9v4.5M11.5 9v4.5"/></svg></button>
+        <div class="rfield"><span class="dot" aria-hidden="true"></span><span class="t num" id="recT">0:00</span><div class="live" id="live" aria-hidden="true"></div></div>
+        <button class="go" id="recGo" type="button" aria-label="Enviar áudio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l16-8-6 17-3-7z"/></svg></button>
+      </div>
+      <p class="hint" id="hint">Enter envia · Shift+Enter quebra a linha · cole ou arraste uma imagem para anexar</p>
+      <p class="rlabel" id="rlabel" hidden>Gravando. Seta envia, lixeira cancela.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Ambiente de teste da Lumi</span>
+    <img class="lg lg-l" src="/static/chat-logo-1.png" alt="Brevia" width="82" height="20">
+    <img class="lg lg-d" src="/static/chat-logo-2.png" alt="Brevia" width="82" height="20"></div>
+</div>
+<div id="overlay" class="overlay" hidden></div>
+<div id="notice" class="toast" role="status"></div>
+<div id="startOverlay" class="overlay">
+  <form id="start" class="modal">
+    <h2>Iniciar simulação</h2>
+    <p>Escolha um nome para identificar este teste no admin. A Lumi vai conduzir o onboarding pela conversa.</p>
+    <label for="name">Nome do contato de teste</label>
+    <input id="name" required maxlength="120" autocomplete="name" placeholder="Seu nome">
+    <button class="btn btn-primary" type="submit">Conversar</button>
+  </form>
+</div>
+<script src="/static/common.js"></script>
+<script src="/static/client-messages.js"></script>
+<script src="/static/client.js"></script>
+<script src="/static/client-media.js"></script>
+</body></html>

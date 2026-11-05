@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="/static/operator-workspace.css"><link rel="stylesheet" href="/static/admin-usage.css"><link rel="stylesheet" href="/static/admin-comments.css"></head><body>
 <title>Lumi Admin</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -115,6 +115,7 @@ button{cursor:pointer}
 .nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:var(--ink-2);text-decoration:none;font-weight:500}
 .nav a svg{width:19px;height:19px;flex:none}
 .nav .handover-count{margin-left:auto;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--pink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.contact-role{display:flex;align-items:center;gap:12px;padding:12px 22px;border-bottom:1px solid var(--line);font-size:13px}.contact-role .input{width:auto;padding:6px 10px}
 .nav a:hover{background:var(--surface-2);color:var(--ink)}
 .nav a[aria-current="page"]{background:var(--violet-soft);color:var(--violet-ink)}
 .help-card{margin-top:auto;background:var(--dark);color:var(--on-dark);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:6px}
@@ -179,6 +180,7 @@ button{cursor:pointer}
 .bar i{display:block;height:100%;min-width:10px;border-radius:99px;background:var(--violet)}
 .bar.teal i{background:var(--teal)}
 .bar.pink i{background:var(--pink)}
+.dash-volume{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:22px;gap:24px}.dash-volume>div{display:flex;flex-direction:column;gap:6px}.dash-volume>div+div{border-left:1px solid var(--line);padding-left:24px}.dash-volume strong{font-family:var(--f-display);font-size:25px;font-weight:600;line-height:1.3}.dash-volume .k-n{margin:0}@media(max-width:600px){.dash-volume{grid-template-columns:1fr;padding:18px;gap:18px}.dash-volume>div+div{border-left:0;border-top:1px solid var(--line);padding-left:0;padding-top:18px}}
 .dash-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:20px;align-items:start}
 .topics{display:flex;flex-direction:column;gap:2px}
 .topic{display:block;padding:10px 12px;margin-inline:-12px;border-radius:12px;text-decoration:none;color:inherit;transition:background .15s,transform .18s ease}
@@ -314,6 +316,20 @@ textarea.input{min-height:200px;resize:vertical;line-height:1.7}
 .modal{width:100%;max-width:560px;max-height:calc(100% - 40px);overflow:auto;background:var(--surface);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:16px}
 .modal h2{font-size:19px}
 .modal .acts{display:flex;justify-content:flex-end;gap:10px}
+.onboarding-modal{max-width:680px;gap:26px;padding:28px}
+.onboarding-modal header p{margin:8px 0 0;color:var(--ink-3);font-size:13.5px;line-height:1.6}
+.onboarding-modal form{display:flex;flex-direction:column;gap:24px}
+.onboarding-modal .field{gap:10px}
+.onboarding-modal textarea.input{min-height:150px}
+.objective-options{display:flex;flex-direction:column;gap:12px}
+.objective-option{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.objective-option input{width:18px;height:18px;flex-shrink:0;margin:3px 0 0;accent-color:var(--violet)}
+.objective-option strong{display:block;font-size:14px;font-weight:500}
+.objective-option small{display:block;margin-top:4px;color:var(--ink-3);font-size:13px;line-height:1.5}
+.objective-note{margin:0;padding:14px 16px;border-radius:12px;background:var(--surface-2);color:var(--ink-3);font-size:13px;line-height:1.7}
+.objective-actions{display:flex;justify-content:flex-end;gap:10px;padding-top:18px;border-top:1px solid var(--line)}
+@media(max-width:600px){.onboarding-modal{padding:20px;gap:22px}.objective-actions .btn{flex:1}}
+
 .modal.lb{max-width:820px;padding:16px}
 .modal.lb img{display:block;width:100%;max-height:56vh;object-fit:contain;border-radius:12px;background:var(--surface-2)}
 .modal.lb p{margin:0;color:var(--ink-2);font-size:14px}
@@ -438,6 +454,7 @@ textarea.input{min-height:200px;resize:vertical;line-height:1.7}
       <a href="#dashboard" data-route="dashboard"><svg viewBox="0 0 20 20" fill="currentColor"><rect x="2" y="2" width="7" height="7" rx="2"/><rect x="11" y="2" width="7" height="7" rx="2" opacity=".55"/><rect x="2" y="11" width="7" height="7" rx="2" opacity=".55"/><rect x="11" y="11" width="7" height="7" rx="2"/></svg>Dashboard</a>
       <a href="#conversas" data-route="conversas"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3.5 5.5a2 2 0 012-2h9a2 2 0 012 2v6a2 2 0 01-2 2H9l-3.5 3v-3h0a2 2 0 01-2-2z"/></svg>Conversas<span id="handoverCount" class="handover-count" role="status" aria-live="polite" hidden></span></a>
       <a href="#configuracoes" data-route="configuracoes"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 5h14M3 10h9M3 15h12"/></svg>Configurações</a>
+      <a href="#consumo" data-route="consumo" id="usageNav" hidden><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 16V9M8 16V4M13 16v-6M18 16V6"/></svg>Consumo e velocidade</a>
     </div>
     <div class="help-card">
       <b>Precisa de ajuda?</b>
@@ -466,4 +483,4 @@ textarea.input{min-height:200px;resize:vertical;line-height:1.7}
 <div id="overlay" class="overlay" hidden></div>
 <style>.msg img{display:block;max-width:280px;max-height:260px;border-radius:10px;margin-top:8px}.reply-box{padding:14px;border-top:1px solid var(--line);display:flex;gap:10px}.reply-box .input{flex:1}.handover-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.notice-live{padding:12px;border-radius:10px;background:var(--teal-soft);color:var(--teal);margin-bottom:14px}.msg.system{align-self:center;background:var(--gold-soft);font-size:13px}.msg strong{display:block}.c-detail{min-height:0}.thread{min-height:100px}</style><div id="toast" class="toast" hidden></div>
 
-<script src="/static/admin.js"></script><script src="/static/admin-dashboard.js"></script><script src="/static/admin-config.js"></script><script src="/static/admin-knowledge.js"></script><script src="/static/admin-images.js"></script><script src="/static/admin-onboarding.js"></script></body></html>
+<script src="/static/admin.js"></script><script src="/static/admin-dashboard.js"></script><script src="/static/admin-comments.js"></script><script src="/static/admin-config.js"></script><script src="/static/admin-roles.js"></script><script src="/static/admin-knowledge.js"></script><script src="/static/admin-images.js"></script><script src="/static/admin-onboarding.js"></script><script src="/static/admin-usage.js"></script></body></html>

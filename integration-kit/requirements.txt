@@ -1,0 +1,9 @@
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+httpx>=0.28,<1
+python-dotenv>=1,<2
+jsonschema>=4.23,<5
+psycopg[binary]>=3.2,<4
+PyMySQL>=1.1,<2
+cryptography>=46,<48
+tzdata>=2025

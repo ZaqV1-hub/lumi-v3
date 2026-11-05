@@ -1,0 +1,8 @@
+#operatorBar{height:48px;position:fixed;inset:0 0 auto;z-index:45;display:flex;align-items:center;padding:0 18px;background:var(--surface,#fff);border-bottom:1px solid var(--line,#E6E6EC);box-sizing:border-box}
+#operatorBar a{font:13px Inter,system-ui,sans-serif;color:var(--ink,#16161D);border:1px solid var(--line,#ddd);border-radius:999px;padding:5px 12px;text-decoration:none}
+body.operator-workspace{padding-top:48px}
+.operator-workspace .side{top:48px;height:calc(100dvh - 48px)}
+.operator-workspace .app{height:min(880px,calc(100dvh - 138px))}
+.readonly-notice{padding:8px 16px;background:#F7F0E2;color:#705117;font:14px Inter,system-ui,sans-serif;text-align:center}
+@media(max-width:640px){.operator-workspace .app{height:calc(100dvh - 48px)}}
+.tenant .status.off{color:var(--ink-3)}.tenant .status.off::before{background:var(--ink-3);box-shadow:none}

@@ -1,0 +1,26 @@
+.comment-icon{display:grid;place-items:center;flex-shrink:0;width:48px;height:48px;border-radius:14px;background:var(--violet-soft);color:var(--violet)}
+.comment-icon svg{width:25px;height:25px}
+.comment-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:52px 28px 44px;min-height:300px}
+.comment-empty .comment-icon{width:64px;height:64px;border-radius:20px;margin-bottom:22px}
+.comment-empty .comment-icon svg{width:30px;height:30px}
+.comment-empty h2{font-size:20px;max-width:480px}
+.comment-empty p{color:var(--ink-2);margin:12px 0 0;max-width:470px;font-size:14px;line-height:1.7}
+.comment-empty-note{color:var(--ink-3);font-size:13px;line-height:1.7;max-width:430px;margin-top:8px}
+.comment-settings .card-h{padding:26px 28px 0}
+.comment-heading{display:flex;align-items:center;gap:16px}
+.comment-heading h2{margin-bottom:4px}
+.comment-settings .card-b{padding:26px 28px}
+.comment-field{display:flex;flex-direction:column;gap:8px}
+.comment-field>label{font-size:14px;font-weight:600}
+.comment-profile{max-width:360px;margin-bottom:26px}
+.comment-help{font-size:13px;color:var(--ink-3);line-height:1.7;margin:0 0 4px;max-width:650px}
+.comment-activation{display:flex;align-items:center;justify-content:space-between;gap:22px;padding:20px;margin-top:24px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.comment-activation strong{display:block;font-size:14px;font-weight:600}
+.comment-activation small{display:block;margin-top:5px;font-size:13px;color:var(--ink-3);line-height:1.6}
+.comment-activation input{flex-shrink:0;width:20px;height:20px;accent-color:var(--violet);cursor:pointer}
+.comment-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;border-top:1px solid var(--line);margin-top:26px;padding-top:22px}
+.comment-footer p{margin:0;font-size:13px;color:var(--ink-3)}
+.comment-footer p[data-state="saved"]{color:var(--up)}
+.comment-footer p[data-state="error"]{color:var(--pink)}
+.comment-footer button{flex-shrink:0}
+@media(max-width:600px){.comment-empty{padding:36px 22px}.comment-empty h2{font-size:18px}.comment-settings .card-h{padding:20px 18px 0}.comment-settings .card-b{padding:22px 18px}.comment-heading{align-items:flex-start;gap:12px}.comment-profile{max-width:none}.comment-activation{padding:16px}.comment-footer{flex-direction:column;align-items:stretch}.comment-footer button{width:100%}}

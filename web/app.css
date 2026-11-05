@@ -353,3 +353,5 @@ a {
     margin: 10px;
   }
 }
+
+.simulation-links{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 18px}.simulation-links a{text-decoration:none}

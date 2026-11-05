@@ -14,6 +14,14 @@ from ..media_models import ContactGate
 from .config import load_config
 from .models import Inbox
 from .bridge import receive, deliver_one, record_delivery
+from .checkout_proxy import router as checkout_router
+from ..instagram.webhook import router as instagram_router
+from ..instagram.media import router as instagram_media_router
+from ..instagram.bridge import deliver_one as deliver_instagram
+from ..instagram.models import Inbox as InstagramInbox, Outbox as InstagramOutbox
+from ..privacy import router as privacy_router
+from ..instagram.comments import deliver_one as deliver_comment
+from ..instagram.comment_models import CommentJob
 
 load_config()
 pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="whatsapp")
@@ -21,8 +29,12 @@ pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="whatsapp")
 
 @asynccontextmanager
 async def lifespan(_):
-    Base.metadata.create_all(engine)
-    with engine.begin() as db:
+    from ..db import Session
+    active_engine = Session.kw["bind"]
+    Base.metadata.create_all(active_engine)
+    with active_engine.begin() as db:
+        db.execute(update(InstagramInbox).where(InstagramInbox.status.in_(["queued", "processing"])).values(status="interrupted", error="Servidor reiniciado durante processamento."))
+        db.execute(update(InstagramOutbox).where(InstagramOutbox.status == "sending").values(status="failed", error="Envio interrompido. Confira a entrega antes de reenviar."))
         db.execute(
             update(Inbox)
             .where(Inbox.status == "processing")
@@ -31,11 +43,14 @@ async def lifespan(_):
             )
         )
         db.execute(update(ContactGate).values(pending=0))
+        db.execute(update(CommentJob).where(CommentJob.status.in_(["queued", "generating", "sending"])).values(status="interrupted", error="Servidor reiniciado; confira o comentário antes de reenviar."))
 
     async def deliver():
         while True:
             try:
                 had_item = await asyncio.to_thread(deliver_one)
+                had_item = await asyncio.to_thread(deliver_instagram) or had_item
+                had_item = await asyncio.to_thread(deliver_comment) or had_item
             except Exception:
                 had_item = False
             await asyncio.sleep(0.1 if had_item else 0.5)
@@ -50,6 +65,10 @@ async def lifespan(_):
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+app.include_router(checkout_router)
+app.include_router(instagram_router)
+app.include_router(instagram_media_router)
+app.include_router(privacy_router)
 
 
 @app.get("/webhooks/whatsapp")

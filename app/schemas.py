@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 class Login(BaseModel):
     email: str
     password: str
+    remember: bool = True
 
 
 class TextInput(BaseModel):
@@ -26,3 +27,7 @@ class Settings(BaseModel):
 class Knowledge(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     content: str = Field(min_length=1, max_length=20000)
+
+
+class ContactRole(BaseModel):
+    role: str = Field(pattern="^(cliente|gestor|atendente|administrador)$")

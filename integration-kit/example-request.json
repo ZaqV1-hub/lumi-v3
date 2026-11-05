@@ -1,0 +1,12 @@
+{
+  "tenant_id": "tenant-demo",
+  "conversation_id": "conversation-demo",
+  "role": "cliente",
+  "arguments": {"date": "2027-01-15"},
+  "context": {
+    "contact_id": "contact-demo",
+    "message_id": "message-demo",
+    "channel": "simulator",
+    "whatsapp": null
+  }
+}

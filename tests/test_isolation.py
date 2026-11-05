@@ -6,6 +6,22 @@ from fastapi.testclient import TestClient
 
 
 class FlowTest(unittest.TestCase):
+    def setUp(self):
+        from sqlalchemy import create_engine
+        from app import main
+        from app.db import Base, Session
+        self.folder = tempfile.TemporaryDirectory()
+        self.session = Session
+        self.previous_bind = Session.kw["bind"]
+        self.engine = create_engine("sqlite:///" + self.folder.name + "/isolation.db")
+        Base.metadata.create_all(self.engine)
+        Session.configure(bind=self.engine)
+
+    def tearDown(self):
+        self.session.configure(bind=self.previous_bind)
+        self.engine.dispose()
+        self.folder.cleanup()
+
     def test_isolation_handover_and_intervention(self):
         with tempfile.TemporaryDirectory() as folder:
             os.environ["LUMI_DATA_DIR"] = folder
@@ -274,7 +290,7 @@ class FlowTest(unittest.TestCase):
                         "Saudação gerada pela IA",
                     )
             finally:
-                main.engine.dispose()
+                self.engine.dispose()
 
 
 if __name__ == "__main__":

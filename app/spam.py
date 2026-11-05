@@ -1,17 +1,40 @@
 """Controle por contato; a seção crítica é curta e não inclui inferência."""
 
 import threading
+from collections import deque
+from contextlib import contextmanager
 from .db import Session
 from .media_models import ContactGate, TenantPreferences, ConversationControl
 from .models import Message
 
 admission_lock = threading.RLock()
-_locks = {}
+_turns = {}
+_changed = threading.Condition(admission_lock)
 
 
-def generation_lock(contact_id):
-    with admission_lock:
-        return _locks.setdefault(contact_id, threading.Lock())
+def reserve_turn(contact_id, message_id):
+    with _changed:
+        _turns.setdefault(contact_id, deque()).append(message_id)
+
+
+def cancel_turn(contact_id, message_id):
+    with _changed:
+        queue = _turns.get(contact_id)
+        if queue and message_id in queue:
+            queue.remove(message_id)
+            if not queue:
+                del _turns[contact_id]
+        _changed.notify_all()
+
+
+@contextmanager
+def generation_lock(contact_id, message_id):
+    with _changed:
+        _changed.wait_for(lambda: _turns.get(contact_id, [None])[0] == message_id)
+    try:
+        yield
+    finally:
+        cancel_turn(contact_id, message_id)
 
 
 def control(db, cid):

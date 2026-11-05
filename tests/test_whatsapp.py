@@ -229,6 +229,7 @@ class WhatsAppTest(unittest.TestCase):
             return httpx.Response(200, json={"messages": [{"id": "wamid.image"}]})
 
         with (
+            patch.object(graph, "access_token", return_value="test-token"),
             patch.dict(
                 os.environ,
                 {

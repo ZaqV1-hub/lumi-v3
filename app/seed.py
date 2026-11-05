@@ -8,6 +8,7 @@ from .models import Tenant, User, KnowledgeItem, Feature
 
 
 def seed():
+    from .role_instructions import ensure_roles
     data = json.loads(
         (Path(__file__).resolve().parent.parent / "demo/tenants.json").read_text(
             encoding="utf-8"
@@ -32,7 +33,7 @@ def seed():
                         content=item["knowledge"],
                     )
                 )
-            if not db.scalar(select(User).where(User.email == item["email"])):
+            if not db.scalar(select(User).where(User.tenant_id == tenant.id)):
                 salt = secrets.token_hex(16)
                 db.add(
                     User(
@@ -54,6 +55,8 @@ def seed():
                         name="handover",
                         description="Solicitar atendimento humano quando o cliente pedir explicitamente.",
                         endpoint="http://127.0.0.1:8001/execute",
-                        roles="cliente,gerente,atendente",
+                        roles="cliente,gestor,gerente,atendente",
                     )
                 )
+        db.flush()
+        ensure_roles(db)

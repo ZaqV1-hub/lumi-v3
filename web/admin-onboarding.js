@@ -25,15 +25,15 @@ async function drawOnboarding() {
   });
 }
 function objectiveForm(field = {}) {
-  openModal(`<section class="card"><div class="card-h"><h2>${field.id ? "Editar" : "Adicionar"} objetivo</h2></div>
-    <form id="objectiveForm" class="card-b"><label for="objectiveTitle">Informação a descobrir</label>
-    <input class="input" id="objectiveTitle" maxlength="80" required value="${esc(field.title || "")}">
-    <label for="objectiveDescription">O que descobrir e quando faz sentido perguntar</label>
-    <textarea class="input" id="objectiveDescription" maxlength="2000" required>${esc(field.description || "")}</textarea>
-    <p><label><input type="checkbox" id="objectiveRequired" ${field.required !== false ? "checked" : ""}> Obrigatório para concluir o onboarding</label></p>
-    <p><label><input type="checkbox" id="objectiveName" ${field.updates_name ? "checked" : ""}> Usar esta informação como nome confirmado do contato</label></p>
-    <p>Objetivos orientam a conversa. Não são perguntas fixas e não bloqueiam atendimento humano.</p>
-    <div class="actions"><button type="button" class="btn btn-ghost" id="cancelObjective">Cancelar</button><button class="btn btn-primary">Salvar objetivo</button></div></form></section>`);
+  openModal(`<section class="modal onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="objectiveHeading"><header><h2 id="objectiveHeading">${field.id ? "Editar" : "Adicionar"} objetivo</h2><p>Defina uma informação que a Lumi deve descobrir durante o atendimento.</p></header>
+    <form id="objectiveForm"><div class="field"><label for="objectiveTitle">Informação a descobrir</label>
+    <input class="input" id="objectiveTitle" maxlength="80" required value="${esc(field.title || "")}"></div>
+    <div class="field"><label for="objectiveDescription">O que descobrir e quando faz sentido perguntar</label>
+    <textarea class="input" id="objectiveDescription" maxlength="2000" required>${esc(field.description || "")}</textarea></div>
+    <div class="objective-options"><label class="objective-option"><input type="checkbox" id="objectiveRequired" ${field.required !== false ? "checked" : ""}><span><strong>Informação obrigatória</strong><small>Precisa ser preenchida para concluir o onboarding.</small></span></label>
+    <label class="objective-option"><input type="checkbox" id="objectiveName" ${field.updates_name ? "checked" : ""}><span><strong>Usar como nome do contato</strong><small>Atualiza o nome confirmado no perfil do cliente.</small></span></label></div>
+    <p class="objective-note">Objetivos orientam uma conversa natural. Não são perguntas fixas e não bloqueiam atendimento humano.</p>
+    <div class="objective-actions"><button type="button" class="btn btn-ghost" id="cancelObjective">Cancelar</button><button class="btn btn-primary">Salvar objetivo</button></div></form></section>`);
   $("#cancelObjective").onclick = () => { $("#overlay").hidden = true; };
   $("#objectiveForm").onsubmit = async event => {
     event.preventDefault();

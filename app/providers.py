@@ -2,17 +2,40 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
+from .usage import record
+DEFAULT_MODEL = "gpt-6.1-terra"
 
 
-def reply(prompt: str) -> str:
+# Perfil de atendimento: os contratos de negócio continuam no prompt/schema da Lumi.
+CODEX_CONFIG = {
+    "model_instructions_file": Path(__file__).with_name("provider-instructions.txt").as_posix(),
+    "skills.max_context_tokens": 1,
+    "features.shell_tool": False,
+    "features.apps": False,
+    "features.multi_agent": False,
+    "features.browser_use": False,
+    "features.computer_use": False,
+    "features.view_image": False,
+    "web_search": "disabled",
+}
+
+
+def reply(prompt: str, tools=None, images=None):
     if os.getenv("LUMI_PROVIDER", "codex") == "demo":
         return "Estou no modo de demonstração. Configure o provider Codex para receber uma resposta gerada por IA."
     schema = {
         "type": "object",
         "properties": {
             "reply": {"type": "string"},
-            "action": {"type": "string", "enum": ["none", "handover", "send_image"]},
+            "action": {"type": "string", "enum": ["none", "handover", "send_image", "call_tool"]},
+            "tool_call": {"anyOf": [{"type": "null"}] + [
+                {"type": "object", "properties": {
+                    "name": {"type": "string", "enum": [tool["name"]]},
+                    "arguments": tool["parameters"]},
+                 "required": ["name", "arguments"], "additionalProperties": False}
+                for tool in (tools or [])]},
             "image_id": {"type": ["string", "null"]},
             "asked_objective_id": {"type": ["string", "null"]},
             "profile_updates": {"type": "array", "items": {
@@ -21,14 +44,14 @@ def reply(prompt: str) -> str:
                     "evidence": {"type": "string"}},
                 "required": ["objective_id", "value", "evidence"], "additionalProperties": False}},
         },
-        "required": ["reply", "action", "image_id", "profile_updates", "asked_objective_id"],
+        "required": ["reply", "action", "image_id", "profile_updates", "asked_objective_id", "tool_call"],
         "additionalProperties": False,
     }
     with tempfile.TemporaryDirectory(prefix="lumi-codex-") as folder:
         path = Path(folder) / "reply.schema.json"
         path.write_text(json.dumps(schema), encoding="utf-8")
-        result = subprocess.run(
-            [
+        model = os.getenv("LUMI_CODEX_MODEL", DEFAULT_MODEL)
+        command = [
                 "codex",
                 "exec",
                 "--sandbox",
@@ -36,14 +59,24 @@ def reply(prompt: str) -> str:
                 "--ephemeral",
                 "--ignore-user-config",
                 "--skip-git-repo-check",
+                "--json",
+                "--model", model,
                 "-c",
                 'model_reasoning_effort="low"',
                 "-C",
                 folder,
-                "--output-schema",
-                str(path),
-                "-",
-            ],
+            ]
+        for key, value in CODEX_CONFIG.items():
+            command += ["-c", f"{key}={json.dumps(value)}"]
+        for index, binary in enumerate(images or []):
+            image_path = Path(folder) / f"image-{index}.jpg"
+            image_path.write_bytes(binary)
+            command += ["--image", str(image_path)]
+        command += ["--output-schema", str(path), "-"]
+        started = time.monotonic()
+        status, usage = "failed", None
+        try:
+            result = subprocess.run(command,
             input=prompt,
             capture_output=True,
             text=True,
@@ -71,15 +104,23 @@ def reply(prompt: str) -> str:
                     "LANG",
                 }
             },
-        )
-        if result.returncode:
-            raise RuntimeError(
-                "O Codex local não respondeu. Confira se ele está instalado e autenticado."
             )
-        try:
-            answer = json.loads(result.stdout)
-            return {"reply": answer["reply"].strip(), "action": answer["action"], "image_id": answer.get('image_id'), "profile_updates": answer.get('profile_updates', []), "asked_objective_id": answer.get('asked_objective_id')}
+            final = None
+            for line in result.stdout.splitlines():
+                try: event = json.loads(line)
+                except ValueError: continue
+                if event.get("type") == "turn.completed": usage = event.get("usage")
+                if event.get("type") == "item.completed" and event.get("item", {}).get("type") == "agent_message":
+                    final = event["item"].get("text")
+            if result.returncode or final is None:
+                raise RuntimeError("O Codex local não respondeu. Confira se ele está instalado e autenticado.")
+            answer = json.loads(final)
+            parsed = {"reply": answer["reply"].strip(), "action": answer["action"], "image_id": answer.get('image_id'), "profile_updates": answer.get('profile_updates', []), "asked_objective_id": answer.get('asked_objective_id'), "tool_call": answer.get('tool_call')}
+            status = "completed"
+            return parsed
         except (json.JSONDecodeError, KeyError, TypeError) as exc:
             raise RuntimeError(
                 "O Codex devolveu uma resposta fora do formato esperado."
             ) from exc
+        finally:
+            record("codex", model, status, round((time.monotonic()-started)*1000), usage=usage)

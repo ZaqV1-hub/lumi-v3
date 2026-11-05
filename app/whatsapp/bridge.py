@@ -52,6 +52,11 @@ def bind_sender(db, channel, sender, name):
 
 
 def receive(phone_id, incoming, name, pool):
+    with admission_lock:
+        return _receive(phone_id, incoming, name, pool)
+
+
+def _receive(phone_id, incoming, name, pool):
     from ..client import receive_message, process_message
     from ..schemas import TextInput
 
@@ -66,30 +71,55 @@ def receive(phone_id, incoming, name, pool):
         row = Inbox(external_id=external_id, phone_number_id=phone_id)
         db.add(row)
         token = bind_sender(db, channel, sender, name)
-        if incoming.get("type") != "text":
+        incoming_type = incoming.get("type")
+        token_env = channel.token_env
+        if incoming_type not in ("text", "image", "audio"):
             row.status = "unsupported"
             return
     try:
-        receipt = receive_message(token, TextInput(content=incoming["text"]["body"]))
+        loader = None
+        if incoming_type == "text":
+            content = incoming["text"]["body"]
+        else:
+            media = incoming.get(incoming_type, {})
+            caption = media.get("caption", "")
+            content = caption or ("[Imagem enviada]" if incoming_type == "image" else "[Áudio enviado]")
+
+            def loader():
+                from .graph import download_media
+                from ..incoming import validated_file
+                binary, mime = download_media(str(media.get("id", "")), token_env)
+                return validated_file(binary, mime, caption)
+        receipt = receive_message(token, TextInput(content=content))
+        if loader:
+            receipt["attachment_loader"] = loader
     except Exception:
         finish_inbox(external_id, "failed", "Não foi possível registrar a mensagem.")
         return
-    if not receipt.get("accepted"):
+    if not receipt.get("accepted") and not (loader and receipt.get("save_attachment")):
         finish_inbox(external_id, "done")
         return
 
     def run():
         try:
-            process_message(receipt)
+            if receipt.get("accepted"):
+                process_message(receipt)
+            else:
+                from ..incoming import prepare_attachment
+                prepare_attachment(receipt)
             finish_inbox(external_id, "done")
         except Exception:
-            finish_inbox(
-                external_id,
-                "failed",
-                "Não foi possível gerar a resposta. Consulte o histórico local.",
-            )
+            finish_inbox(external_id, "failed", "Não foi possível processar a mensagem. Consulte o histórico local.")
 
-    pool.submit(run)
+    try:
+        pool.submit(run)
+    except Exception:
+        if receipt.get("accepted"):
+            from ..spam import cancel_turn, finish
+            cancel_turn(receipt["contact_id"], receipt["message_id"])
+            finish(receipt["contact_id"])
+        finish_inbox(external_id, "failed", "Não foi possível agendar a mensagem.")
+
 
 
 def finish_inbox(external_id, status, error=""):

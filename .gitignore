@@ -3,4 +3,15 @@ __pycache__/
 *.pyc
 .data/
 .env
+*.env
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+*.pem
+*.key
 .codex-attachments/

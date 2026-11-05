@@ -1,13 +1,33 @@
 import re
 import httpx
-from .config import required
+from urllib.parse import urlsplit
+from .config import required, access_token
+
+
+def download_media(media_id, token_env):
+    if not re.fullmatch(r"\d{5,80}", media_id):
+        raise RuntimeError("Mídia inválida")
+    version=required("WHATSAPP_GRAPH_VERSION")
+    if not re.fullmatch(r"v\d+\.\d+",version):raise RuntimeError("Versão da Meta inválida")
+    with httpx.Client(timeout=20,follow_redirects=False,headers={"Authorization":"Bearer "+access_token(token_env)}) as client:
+        metadata=check(client.get(f"https://graph.facebook.com/{version}/{media_id}"))
+        url=metadata.get("url","");parsed=urlsplit(url);host=parsed.hostname or ""
+        if parsed.scheme!='https' or parsed.username or parsed.password or not (host=='lookaside.fbsbx.com' or host.endswith('.fbcdn.net')):
+            raise RuntimeError("Origem de mídia não permitida")
+        with client.stream('GET',url) as response:
+            if response.status_code!=200:raise RuntimeError("Mídia indisponível")
+            data=bytearray()
+            for part in response.iter_bytes():
+                data.extend(part)
+                if len(data)>12*1024*1024:raise RuntimeError("Mídia grande demais")
+        return bytes(data),metadata.get('mime_type','')
 
 
 def send(phone_id, token_env, recipient, text, image_data=None):
     version = required("WHATSAPP_GRAPH_VERSION")
     if not re.fullmatch(r"v\d+\.\d+", version):
         raise RuntimeError("Versão Graph API inválida.")
-    token = required(token_env)
+    token = access_token(token_env)
     url = f"https://graph.facebook.com/{version}/{phone_id}"
     headers = {"Authorization": "Bearer " + token}
     with httpx.Client(timeout=25, headers=headers) as client:

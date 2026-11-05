@@ -1,0 +1,11 @@
+Vou desenvolver a Lumi neste projeto. O repositório da equipe é https://github.com/ZaqV1-hub/lumi-v3.
+
+Primeiro confira a pasta atual e os remotos Git. Se o projeto já estiver aberto, preserve os arquivos e as alterações existentes. Se ainda não houver uma cópia local, use minha autenticação GitHub para clonar em uma pasta nova, sem sobrescrever outra pasta. Se faltar acesso ou autenticação, informe o passo necessário para eu entrar diretamente no GitHub, sem pedir que eu envie senha ou token no chat. Não troque um remote nem envie alterações para um repositório diferente sem solicitação.
+
+Estou fornecendo também o pacote de orientação da equipe. Se AGENTS.md e os guias ainda não estiverem no projeto, incorpore os arquivos nos caminhos correspondentes, comparando qualquer versão existente antes de alterar. Leia AGENTS.md, docs/desenvolvimento-e-passagem.md, docs/arquitetura-e-colaboracao.md e docs/contrato-de-integracoes.md. Consulte a documentação específica do fluxo quando necessário. Use essas instruções como referência neste projeto e releia os arquivos quando forem atualizados.
+
+Confira a versão local, o branch e o estado do checkout. Confirme comigo a referência de código se houver diferença entre o material recebido e o repositório. Não presuma que a versão remota contém alterações locais de outra máquina. Não faça reset, limpeza ou sobrescrita para resolver divergências.
+
+Prepare o desenvolvimento em ambiente isolado, com dados fictícios, sem usar bancos ativos, credenciais de produção ou disparos reais. O núcleo e as integrações podem ser alterados conforme a tarefa. Preserve simplicidade, isolamento entre tenants, permissões no servidor, fila de mensagens, handover e as configurações armazenadas no banco. Funcionalidades de negócio novas devem usar serviços por API, conforme o contrato, sem importar o núcleo. Não use respostas prontas para esconder erros de integração.
+
+Nesta preparação, não ative canais, não altere contas Meta, não faça cobranças e não publique. Não faça commit ou push ainda. Ao terminar, explique de forma breve qual projeto e versão estão abertos, quais instruções foram incorporadas e se falta alguma dependência ou configuração para começar. Depois vou passar a primeira tarefa.

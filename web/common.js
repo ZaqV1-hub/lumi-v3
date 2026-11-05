@@ -25,6 +25,10 @@ function appendMessageText(element, text) {
     const link = document.createElement("a");
     link.href = url;
     link.textContent = url;
+    const target = new URL(url);
+    if (target.origin === location.origin && /^\/checkout\/[A-Za-z0-9_-]{40,80}$/.test(target.pathname)) {
+      link.textContent = "Abrir página de pagamento";
+    }
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     element.append(link, document.createTextNode(match[0].slice(url.length)));
@@ -48,6 +52,14 @@ function drawMessages(items) {
         el.append(name);
       }
       appendMessageText(el, m.content);
+      if(m.attachment_url){
+        if(m.attachment_kind==='image'){
+          const link=document.createElement('a');link.href=m.attachment_url;link.target='_blank';link.rel='noopener';
+          const image=document.createElement('img');image.src=m.attachment_url;image.alt='Imagem enviada pelo cliente';image.style.cssText='display:block;max-width:100%;max-height:300px;border-radius:10px;margin-top:10px';link.append(image);el.append(link);
+        }else if(m.attachment_kind==='audio'){
+          const audio=document.createElement('audio');audio.controls=true;audio.preload='metadata';audio.src=m.attachment_url;audio.style.cssText='display:block;max-width:100%;margin-top:10px';el.append(audio);
+        }
+      }
       if (m.image_url) {
         const link = document.createElement('a');
         link.href = m.image_url;

@@ -4,6 +4,8 @@ from sqlalchemy import select
 from .models import Conversation, Message, MessageAuthor, VisitorSession
 from .media_models import MessageImage
 from .whatsapp.models import Outbox
+from .channels import delivery
+from .incoming_models import IncomingAttachment
 
 
 def timestamp(value):
@@ -31,12 +33,14 @@ def messages(db, tenant_id, cid):
         {
             "id": m.id,
             "sender": m.sender,
-            "delivery_error": db.get(Outbox, m.id).error
-            if db.get(Outbox, m.id)
+            "delivery_error": delivery(db, m.id).error
+            if delivery(db, m.id)
             else "",
-            "delivery": db.get(Outbox, m.id).status if db.get(Outbox, m.id) else None,
+            "delivery": delivery(db, m.id).status if delivery(db, m.id) else None,
             "content": m.content,
             "created_at": timestamp(m.created_at),
+            "attachment_kind": db.get(IncomingAttachment, m.id).kind if db.get(IncomingAttachment, m.id) else None,
+            "attachment_url": f"/api/admin/conversations/{cid}/attachments/{m.id}" if db.get(IncomingAttachment, m.id) else None,
             "image_id": db.get(MessageImage, m.id).image_id
             if db.get(MessageImage, m.id)
             else None,

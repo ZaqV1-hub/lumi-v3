@@ -1,0 +1,51 @@
+--- a/src/app/api/auth/register/route.ts
++++ b/src/app/api/auth/register/route.ts
+@@ -1,3 +1,4 @@
++import {canClaimGuest, createPublicUserWithGuestClaim as createPublicUser} from "@/lib/lumi-guest-registration";
+ import { NextResponse } from "next/server";
+ import type {
+   AuthErrorResponse,
+@@ -5,7 +6,6 @@
+ } from "@/lib/auth-contracts";
+ import { createAuthSessionToken, setAuthCookie } from "@/lib/auth-session";
+ import {
+-  createPublicUser,
+   findPublicUserByCpf,
+   findPublicUserByEmail,
+   getProfileCityById,
+@@ -17,6 +17,7 @@
+ export const runtime = "nodejs";
+ 
+ type RegisterPayload = {
++  lumiClaimToken?: unknown;
+   cpf?: unknown;
+   password?: unknown;
+   confirmPassword?: unknown;
+@@ -335,7 +336,7 @@
+       );
+     }
+ 
+-    if (existingCpf) {
++    if (existingCpf && !(await canClaimGuest(cpf, payload.lumiClaimToken))) {
+       return errorResponse(
+         "cpf_in_use",
+         "Seu CPF ja esta vinculado a uma conta.",
+@@ -368,7 +369,7 @@
+       uf,
+       cityId,
+       complement: complement.value,
+-    });
++    }, payload.lumiClaimToken);
+ 
+     if (!user) {
+       return errorResponse(
+--- a/src/components/customer-registration-page.tsx
++++ b/src/components/customer-registration-page.tsx
+@@ -275,6 +275,7 @@
+         },
+         body: JSON.stringify({
+           ...form,
++          lumiClaimToken: new URLSearchParams(window.location.search).get("claim") || undefined,
+           cpf: form.cpf.replace(/\D/g, ""),
+           cep: form.cep.replace(/\D/g, ""),
+           cityId: Number(form.cityId),

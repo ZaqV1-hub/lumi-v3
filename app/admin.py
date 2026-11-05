@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func
 from .access import current_user
 from .db import Session
 from .models import Conversation, Contact, Message, MessageAuthor, Tenant, KnowledgeItem
-from .schemas import TextInput, Settings, Knowledge
+from .schemas import TextInput, Settings, Knowledge, ContactRole
 from .conversations import conversation, messages, timestamp
 from .media_models import TenantPreferences, ContactGate
 from .spam import admission_lock, control
 from .whatsapp.models import Chat
+from .channels import channel_name
 from .onboarding import profile_state
+from .role_instructions import RoleInstruction
 
 router = APIRouter()
 
@@ -16,10 +18,15 @@ router = APIRouter()
 @router.get("/api/admin/conversations")
 def conversations(user=Depends(current_user)):
     with Session() as db:
+        activity = (select(Message.conversation_id, func.max(Message.created_at).label("latest"))
+            .where(Message.tenant_id == user.tenant_id)
+            .group_by(Message.conversation_id).subquery())
         rows = db.scalars(
             select(Conversation)
+            .outerjoin(activity, activity.c.conversation_id == Conversation.id)
             .where(Conversation.tenant_id == user.tenant_id)
-            .order_by(Conversation.created_at.desc())
+            .order_by(func.coalesce(activity.c.latest, Conversation.created_at).desc(),
+                      Conversation.created_at.desc(), Conversation.id.desc())
         )
         return [
             {
@@ -27,7 +34,8 @@ def conversations(user=Depends(current_user)):
                 "profile": profile_state(db, user.tenant_id, c.contact_id),
                 "status": c.status,
                 "name": db.get(Contact, c.contact_id).name,
-                "channel": "whatsapp" if db.get(Chat, c.id) else "simulator",
+                "role": db.get(Contact, c.contact_id).role,
+                "channel": channel_name(db, c.id),
                 "created_at": timestamp(c.created_at),
                 "blocked": bool(
                     db.get(ContactGate, c.contact_id)
@@ -44,6 +52,22 @@ def detail(cid: str, user=Depends(current_user)):
     with Session() as db:
         c = conversation(db, user.tenant_id, cid)
         return {"status": c.status, "messages": messages(db, user.tenant_id, cid)}
+
+
+@router.put("/api/admin/conversations/{cid}/role")
+def change_role(cid: str, data: ContactRole, user=Depends(current_user)):
+    from .tenant_runtime import allows_role
+    with admission_lock, Session.begin() as db:
+        c = conversation(db, user.tenant_id, cid)
+        contact = db.get(Contact, c.contact_id)
+        if not allows_role(db, user.tenant_id, data.role) or not db.get(RoleInstruction, (user.tenant_id, data.role)):
+            raise HTTPException(400, "Papel não cadastrado nesta empresa")
+        if data.role == "administrador" and user.console_role != "brevia":
+            raise HTTPException(403, "Somente a equipe Brevia pode autorizar este papel")
+        if contact.role != data.role:
+            contact.role = data.role
+            control(db, cid).revision += 1
+    return {"role": data.role}
 
 
 @router.post("/api/admin/conversations/{cid}/claim")

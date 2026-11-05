@@ -1,0 +1,45 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Lumi Admin</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"><link rel="stylesheet" href="/static/console.css"><link rel="stylesheet" href="/static/console-business.css"></head><body><!-- ===== LOGIN ===== -->
+<section id="login">
+  <div class="l-brand">
+    <img src="/static/console-logo-1.png" alt="Brevia" style="display:block">
+    <div><h2>Acompanhe e ajuste a sua assistente em tempo real.</h2><p>Um só acesso para a equipe Brevia e para os clientes. Cada pessoa entra direto no lugar certo.</p></div>
+    <div class="mini">Brevia · Lumi</div>
+  </div>
+  <div class="l-form">
+    <form class="l-box" id="loginForm" >
+      <h1>Entrar</h1><p class="sub">Use o e-mail e a senha que a Brevia enviou.</p>
+      <div class="l-err" id="lErr" role="alert" hidden></div>
+      <div class="field"><label for="em">E-mail</label><input class="inp" id="em" required type="email" autocomplete="username" placeholder="nome@empresa.com.br"></div>
+      <div class="field"><label for="pw">Senha</label><div class="pwrow"><input class="inp" id="pw" required type="password" autocomplete="current-password" placeholder="Sua senha"><button type="button" id="pwT">Mostrar</button></div></div>
+      <label class="keep"><input type="checkbox" id="keep" checked> Manter conectado</label>
+      <button class="btn btn-primary" type="submit" style="min-height:48px">Entrar</button>
+      <p class="muted" style="font-size:13.5px">Esqueceu a senha? Solicite a redefinição à equipe Brevia.</p>
+
+    </form>
+    <form class="l-box" id="pwForm"  hidden>
+      <h1>Crie a sua senha</h1><div class="field"><label for="currentPw">Senha provisória</label><input class="inp" id="currentPw" type="password" autocomplete="current-password"></div><p class="sub">Esta é a sua senha provisória. Escolha uma senha nova para continuar.</p>
+      <div class="l-err" id="pErr" role="alert" hidden></div>
+      <div class="field"><label for="np">Nova senha</label><input class="inp" id="np" required minlength="8" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"></div>
+      <div class="field"><label for="np2">Repita a nova senha</label><input class="inp" id="np2" required minlength="8" type="password" autocomplete="new-password"></div>
+      <button class="btn btn-primary" type="submit" style="min-height:48px">Salvar e entrar</button>
+    </form>
+  </div>
+</section>
+
+<!-- ===== CONSOLE BREVIA ===== -->
+<div id="app" hidden>
+  <nav class="side" id="side" aria-label="Menu do console">
+    <div class="logo"><img class="lg-l" src="/static/console-logo-2.png" alt="Brevia"><img class="lg-d" src="/static/console-logo-3.png" alt="Brevia"><small>Admin</small></div>
+    <div class="nav" id="nav"></div>
+    <div class="grow"></div>
+    <div class="me"><span class="av" id="meAv">I</span><div><b id="meName">Isaque</b><span class="m">Equipe Brevia</span></div><button type="button" id="logout" aria-label="Sair"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v10a2 2 0 002 2h3M13 14l4-4-4-4M17 10H8"/></svg></button></div>
+  </nav>
+  <div class="scrim" id="scrim"></div>
+  <div class="main">
+    <header class="topbar"><button class="menu-btn" id="menuBtn" aria-label="Abrir menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button><img class="lg-l" src="/static/console-logo-4.png" alt="Brevia"><img class="lg-d" src="/static/console-logo-5.png" alt="Brevia"></header>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<div id="overlay" class="overlay" hidden></div>
+<div id="toast" class="toast" role="status" hidden></div><script src="/static/console.js"></script><script src="/static/console-access.js"></script><script src="/static/console-issues.js"></script><script src="/static/console-views.js"></script><script src="/static/console-business.js"></script><script src="/static/console-business-forms.js"></script></body></html>
