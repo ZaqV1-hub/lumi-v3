@@ -8,7 +8,7 @@ from sqlalchemy import select
 from ..access import current_user
 from ..db import Session
 from .models import Channel
-from .config import config_path, required
+from .config import app_secret, config_path, required
 
 router = APIRouter()
 config_lock = threading.Lock()
@@ -58,11 +58,17 @@ async def save_token(request: Request, user=Depends(current_user)):
         raise HTTPException(400, "A Meta não aceitou esse token para o número selecionado. Gere um novo token com acesso a esse número.") from None
     key = "WHATSAPP_CHANNEL_TOKEN_" + phone
     with config_lock:
-        set_key(str(config_path()), key, token, quote_mode="never")
         with Session.begin() as db:
             channel = db.scalar(select(Channel).where(Channel.phone_number_id == phone,
-                                                      Channel.tenant_id == user.tenant_id))
+                                                      Channel.tenant_id == user.tenant_id).with_for_update())
             if not channel:
                 raise HTTPException(404, "Canal não encontrado")
+            shared = db.scalar(select(Channel).where(Channel.token_env == key, Channel.phone_number_id != phone))
+            if shared:
+                raise HTTPException(409, "A credencial de destino está vinculada a outro canal. Revise a configuração.")
+            secret = app_secret(channel.token_env)
+            # A troca do nome do token não pode trocar o app que valida o webhook.
+            set_key(str(config_path()), key + "_APP_SECRET", secret)
+            set_key(str(config_path()), key, token, quote_mode="never")
             channel.token_env = key
     return {"ok": True, "phone": number}

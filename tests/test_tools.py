@@ -16,6 +16,8 @@ class ToolsTest(unittest.TestCase):
         from app.models import Tenant, Feature
         from app.tool_models import ToolContract
         from services.rincao.contracts import CONTRACTS
+        # Registra comércio explicitamente, sem depender da ordem dos outros testes.
+        from services.rincao import commerce_contracts
         from services.web_tools.contracts import CONTRACTS as WEB_CONTRACTS
         self.session = Session
         self.previous = Session.kw["bind"]
@@ -148,7 +150,7 @@ class ToolsTest(unittest.TestCase):
         def choose(*args, **kwargs):
             self.http.put(self.role_url, json={"role": "cliente"}).raise_for_status()
             return {"reply": "", "action": "call_tool", "tool_call": {"name": "consultar_faturamento", "arguments": {}}}
-        with patch.object(client, "reply", side_effect=lambda *a, **k: choose(*a, **k) if k else {"reply": "Sem acesso", "action": "none"}), patch.object(tools.urllib.request, "urlopen") as network:
+        with patch.object(client, "reply", side_effect=lambda *a, **k: choose(*a, **k) if k.get("tools") else {"reply": "Sem acesso", "action": "none"}), patch.object(tools.urllib.request, "urlopen") as network:
             self.send("Qual faturamento?").raise_for_status()
             network.assert_not_called()
         self.assertFalse(any(m["sender"] == "lumi" for m in self.http.get("/api/client/" + self.token).json()["messages"]))

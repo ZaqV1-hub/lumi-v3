@@ -2,11 +2,11 @@ services:
   db:
     image: postgres:17
     environment:
-      POSTGRES_DB: lumi
+      POSTGRES_DB: lumi_v3_dev
       POSTGRES_USER: lumi
-      POSTGRES_PASSWORD: lumi_local
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente privado}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:55439:5432"
     volumes:
       - lumi_postgres:/var/lib/postgresql/data
 volumes:

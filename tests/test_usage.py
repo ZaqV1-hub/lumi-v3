@@ -3,15 +3,57 @@ import subprocess
 import unittest
 from unittest.mock import patch
 from app import providers
-from app.usage import estimate
+from app.tenant_ai import AIConfig
+from app.usage import estimate, estimate_openai
 
 
 class UsageTest(unittest.TestCase):
+    def setUp(self):
+        selected = patch.object(providers, 'configuration', return_value=AIConfig('codex', 'gpt-6.1-terra'))
+        selected.start()
+        self.addCleanup(selected.stop)
+
     def test_pricing_subtracts_cached_input_and_preserves_unknown(self):
         cost=estimate('gpt-6.1-sol',{'input_tokens':1000,'cached_input_tokens':800,'output_tokens':100})
         self.assertAlmostEqual(cost,0.00148)
         self.assertIsNone(estimate('unknown',{'input_tokens':1000,'output_tokens':100}))
         self.assertIsNone(estimate('gpt-6.1-sol',{}))
+
+    def test_openai_standard_cost_includes_cache_writes_once_and_not_reasoning_twice(self):
+        usage = {'input_tokens': 12000, 'cached_input_tokens': 4000, 'output_tokens': 1000,
+                 'reasoning_output_tokens': 900, 'cache_write_tokens': 7000,
+                 'cache_write_30m_tokens': 3000, 'cache_write_12h_tokens': 4000,
+                 'service_tier': 'default'}
+        self.assertAlmostEqual(estimate_openai('gpt-6-luna', usage), 0.002015)
+        usage['reasoning_output_tokens'] = 0
+        self.assertAlmostEqual(estimate_openai('gpt-6-luna', usage), 0.002015)
+        self.assertAlmostEqual(estimate_openai('gpt-6.1-sol', usage), 0.0399)
+        self.assertAlmostEqual(estimate_openai('gpt-6.1-terra', usage), 0.01995)
+
+    def test_openai_long_context_rates_apply_after_272000_total_input_tokens(self):
+        usage = {'input_tokens': 272000, 'cached_input_tokens': 0, 'output_tokens': 10,
+                 'cache_write_tokens': 0, 'cache_write_30m_tokens': 0,
+                 'cache_write_12h_tokens': 0, 'service_tier': 'default'}
+        self.assertAlmostEqual(estimate_openai('gpt-6-luna', usage), 0.027205)
+        usage.update(input_tokens=300000, cached_input_tokens=100000, output_tokens=1000,
+                     cache_write_tokens=100000, cache_write_30m_tokens=50000, cache_write_12h_tokens=50000)
+        self.assertAlmostEqual(estimate_openai('gpt-6-luna', usage), 0.06025)
+
+    def test_openai_unknown_incomplete_or_inconsistent_usage_is_not_priced_as_zero(self):
+        complete = {'input_tokens': 1000, 'cached_input_tokens': 200, 'output_tokens': 100,
+                    'cache_write_tokens': 500, 'cache_write_30m_tokens': 500,
+                    'cache_write_12h_tokens': 0, 'service_tier': 'default'}
+        self.assertIsNone(estimate_openai('unknown-model', complete))
+        self.assertIsNone(estimate_openai('gpt-6-luna', None))
+        for name in complete:
+            incomplete = {k: v for k, v in complete.items() if k != name}
+            with self.subTest(missing=name):
+                self.assertIsNone(estimate_openai('gpt-6-luna', incomplete))
+        for changes in [{'service_tier': 'priority'}, {'cached_input_tokens': None},
+                        {'input_tokens': -1}, {'output_tokens': True}, {'output_tokens': '100'},
+                        {'cache_write_tokens': 501}, {'cached_input_tokens': 900}]:
+            with self.subTest(changes=changes):
+                self.assertIsNone(estimate_openai('gpt-6-luna', {**complete, **changes}))
 
     def test_codex_json_usage_is_collected_without_storing_prompt_or_raw_response(self):
         final={'reply':'Vejo o teste.','action':'none'}

@@ -19,6 +19,18 @@ def access_token(name):
     return value
 
 
+def app_secret(token_env=None):
+    values = dotenv_values(config_path())
+    if token_env:
+        name = token_env + "_APP_SECRET"
+        # Um valor específico vazio desabilita o canal, sem herdar outro app.
+        if name in values:
+            return (values[name] or "").strip()
+        if name in os.environ:
+            return os.environ[name].strip()
+    return (values.get("WHATSAPP_APP_SECRET", os.getenv("WHATSAPP_APP_SECRET", "")) or "").strip()
+
+
 def required(name):
     value = os.getenv(name, "").strip()
     if not value:

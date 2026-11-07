@@ -15,7 +15,7 @@ from .schemas import Login
 router = APIRouter()
 
 @router.post("/api/login")
-def login(data: Login, response: Response):
+def login(data: Login, request: Request, response: Response):
     with Session.begin() as db:
         user = db.scalar(select(User).where(User.email == data.email.lower().strip()))
         if not user or not secrets.compare_digest(
@@ -34,7 +34,8 @@ def login(data: Login, response: Response):
             )
         )
         response.set_cookie(
-            "lumi_session", token, httponly=True, samesite="strict", max_age=86400 if data.remember else None
+            "lumi_session", token, httponly=True, samesite="strict", secure=request.url.scheme == "https",
+            max_age=86400 if data.remember else None
         )
         return {"ok": True}
 
@@ -50,7 +51,7 @@ def logout(request: Request, response: Response):
         )
         if row:
             db.delete(row)
-    response.delete_cookie("lumi_session")
+    response.delete_cookie("lumi_session", httponly=True, samesite="strict", secure=request.url.scheme == "https")
     return {"ok": True}
 
 

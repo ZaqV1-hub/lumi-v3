@@ -1,0 +1,20 @@
+<service>
+  <id>lumi-v3-hml-webhook</id>
+  <name>Lumi V3 Homologacao WhatsApp</name>
+  <description>Receptor assinado e entrega WhatsApp da Lumi V3 em homologacao.</description>
+  <executable>C:\LumiV3-HML\venv\Scripts\python.exe</executable>
+  <arguments>-m uvicorn app.whatsapp.webhook:app --host 127.0.0.1 --port 8013 --workers 1 --env-file C:\LumiV3-HML\private\hml.env --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log --timeout-graceful-shutdown 130</arguments>
+  <workingdirectory>C:\LumiV3-HML\current</workingdirectory>
+  <env name="LOCALAPPDATA" value="C:\LumiV3-HML\data" />
+  <env name="PYTHONUTF8" value="1" />
+  <env name="PYTHONUNBUFFERED" value="1" />
+  <env name="PYTHONDONTWRITEBYTECODE" value="1" />
+  <startmode>Automatic</startmode>
+  <depend>lumi-postgresql-17-hml</depend>
+  <serviceaccount><domain>NT AUTHORITY</domain><user>LocalService</user></serviceaccount>
+  <onfailure action="restart" delay="10 sec" />
+  <onfailure action="restart" delay="30 sec" />
+  <stoptimeout>140 sec</stoptimeout>
+  <logpath>C:\LumiV3-HML\logs</logpath>
+  <log mode="roll-by-size"><sizeThreshold>10240</sizeThreshold><keepFiles>5</keepFiles></log>
+</service>

@@ -68,7 +68,7 @@ def generate(profile_id, comment_id):
         caption = comment_graph.publication(channel, media_id)
         prompt += "\nDADOS PÚBLICOS\n" + json.dumps({"publication": caption, "comment": text}, ensure_ascii=False)
         with usage_scope(tid, cid, mid):
-            answer = reply(prompt, tools=[])
+            answer = reply(prompt, tools=[], tenant_id=tid)
         with Session.begin() as db:
             job = db.get(CommentJob, (profile_id, comment_id))
             text = answer.get("reply", "").strip() if isinstance(answer, dict) and answer.get("action") == "none" else ""

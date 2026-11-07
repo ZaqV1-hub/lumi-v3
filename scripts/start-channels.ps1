@@ -5,8 +5,6 @@ $lumiData = Join-Path $env:LOCALAPPDATA 'Lumi'
 New-Item -ItemType Directory -Path $lumiData -Force | Out-Null
 $env:LUMI_DATA_DIR = $lumiData
 $env:LUMI_TOOLS_ENV = Join-Path $lumiData 'tools.env'
-if (-not $env:LUMI_PROVIDER) { $env:LUMI_PROVIDER = 'codex' }
-if (-not $env:LUMI_CODEX_MODEL) { $env:LUMI_CODEX_MODEL = 'gpt-6.1-terra' }
 $channelListener = Get-NetTCPConnection -State Listen -LocalPort 8002 -ErrorAction SilentlyContinue
 if ($channelListener) {
     $channelProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($channelListener[0].OwningProcess)"

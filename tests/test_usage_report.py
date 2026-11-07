@@ -1,5 +1,7 @@
 import tempfile
+import os
 import unittest
+from unittest.mock import patch
 from datetime import datetime,timezone
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine,select
@@ -9,6 +11,7 @@ from app.seed import seed
 from app.models import User,Tenant,Contact,Conversation,Message
 from app.console_models import ConsoleAccount
 from app.usage_models import ModelCall,ResponseRun
+from app.usage import record,usage_scope
 
 
 class UsageReportTest(unittest.TestCase):
@@ -81,3 +84,59 @@ class UsageReportTest(unittest.TestCase):
         self.assertEqual(data['calls'],1001);self.assertEqual(len(data['recent']),50)
         self.assertEqual(data['input_tokens'],1001);self.assertEqual(data['daily'][0]['input_tokens'],1001)
         self.assertEqual(data['estimated_api_usd'],0)
+
+    def test_openai_model_and_unpriced_usage_are_explicit(self):
+        message = self.message()
+        with usage_scope(message['tenant_id'], message['conversation_id'], message['message_id']):
+            record('openai', 'gpt-6.1-terra', 'completed', 10, usage={
+                'input_tokens': 100, 'cached_input_tokens': 20, 'output_tokens': 10,
+                'reasoning_output_tokens': 3})
+        with Session.begin() as db:
+            row = db.scalar(select(ModelCall).where(ModelCall.message_id == message['message_id']))
+            self.assertIsNone(row.estimated_usd)
+            self.assertEqual(row.reasoning_tokens, 3)
+            row.created_at = message['created_at']
+        from app.tenant_ai import TenantAI
+        with Session.begin() as db:
+            db.add(TenantAI(tenant_id=message['tenant_id'], provider='openai', model='configured-api-model'))
+        data = self.http.get('/api/admin/usage', params=self.params).json()
+        self.assertEqual(data['configured_provider'], 'openai')
+        self.assertEqual(data['configured_model'], 'configured-api-model')
+        self.assertEqual(data['messages_without_complete_cost'], 1)
+        self.assertIsNone(data['estimated_api_usd'])
+        self.assertIsNone(data['by_model'][0]['estimated_api_usd'])
+        self.assertIsNone(data['recent'][0]['estimated_usd'])
+
+    def test_verified_openai_cost_reaches_report_without_charging_codex_or_mixing_tenants(self):
+        usage = {'input_tokens': 12000, 'cached_input_tokens': 4000, 'output_tokens': 1000,
+                 'reasoning_output_tokens': 900, 'cache_write_tokens': 7000,
+                 'cache_write_30m_tokens': 3000, 'cache_write_12h_tokens': 4000,
+                 'service_tier': 'default'}
+        first, incomplete, other = self.message(), self.message(), self.message(self.other)
+        for message, provider, model in [(first, 'openai', 'gpt-6-luna'),
+                                         (first, 'codex_gateway', 'gpt-6-luna'),
+                                         (incomplete, 'openai', 'unknown-model'),
+                                         (other, 'openai', 'gpt-6-luna')]:
+            with usage_scope(message['tenant_id'], message['conversation_id'], message['message_id']):
+                record(provider, model, 'completed', 10, usage=usage)
+        with Session.begin() as db:
+            rows = list(db.scalars(select(ModelCall)))
+            for row in rows:
+                row.created_at = first['created_at']
+            priced = next(r for r in rows if r.tenant_id == self.tid and r.provider == 'openai' and r.model == 'gpt-6-luna')
+            self.assertAlmostEqual(priced.estimated_usd, 0.002015)
+            self.assertEqual(priced.reasoning_tokens, 900)
+            self.assertIn('2026-11-07', priced.price_reference)
+            self.assertIn('https://developers.openai.com/api/docs/pricing', priced.price_reference)
+            self.assertIn('service_tier=default', priced.price_reference)
+            self.assertIn('cache_write_30m_tokens=3000', priced.price_reference)
+            self.assertIn('cache_write_12h_tokens=4000', priced.price_reference)
+            self.assertIn('não é fatura', priced.price_reference)
+        data = self.http.get('/api/admin/usage', params=self.params).json()
+        self.assertEqual(data['calls'], 3)
+        self.assertAlmostEqual(data['estimated_api_usd'], 0.002015)
+        self.assertEqual(data['messages_without_complete_cost'], 1)
+        codex = next(row for row in data['recent'] if row['provider'] == 'codex_gateway')
+        self.assertEqual(codex['estimated_usd'], 0)
+        unknown = next(row for row in data['recent'] if row['model'] == 'unknown-model')
+        self.assertIsNone(unknown['estimated_usd'])

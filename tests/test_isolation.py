@@ -101,7 +101,7 @@ class FlowTest(unittest.TestCase):
                     ).json()["token"]
                     cid2 = admin.get("/api/admin/conversations").json()[0]["id"]
 
-                    def intervene(_):
+                    def intervene(_, **kwargs):
                         admin.post("/api/admin/conversations/" + cid2 + "/claim")
                         return "Esta resposta deve ser descartada"
 
@@ -203,7 +203,7 @@ class FlowTest(unittest.TestCase):
                     spam_cid = admin.get("/api/admin/conversations").json()[0]["id"]
                     ready, unblock = threading.Event(), threading.Event()
 
-                    def slow_reply(_):
+                    def slow_reply(_, **kwargs):
                         ready.set()
                         unblock.wait(10)
                         return "Respondida"

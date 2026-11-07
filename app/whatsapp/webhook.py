@@ -8,11 +8,11 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import update
-from ..db import Base, engine
+from sqlalchemy import select, update
+from ..db import Base, engine, Session
 from ..media_models import ContactGate
-from .config import load_config
-from .models import Inbox
+from .config import app_secret, load_config
+from .models import Channel, Inbox
 from .bridge import receive, deliver_one, record_delivery
 from .checkout_proxy import router as checkout_router
 from ..instagram.webhook import router as instagram_router
@@ -86,45 +86,49 @@ def verify(request: Request):
 
 @app.post("/webhooks/whatsapp")
 async def incoming(request: Request):
-    secret = os.getenv("WHATSAPP_APP_SECRET", "")
-    if not secret:
-        raise HTTPException(503, "Webhook não configurado")
     raw = bytearray()
     async for chunk in request.stream():
         raw.extend(chunk)
         if len(raw) > 1024 * 1024:
             raise HTTPException(413, "Evento muito grande")
-    expected = "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(
-        expected, request.headers.get("x-hub-signature-256", "")
-    ):
-        raise HTTPException(401, "Assinatura inválida")
     import json
 
     try:
         body = json.loads(raw)
-        if body.get("object") != "whatsapp_business_account":
-            return {"ok": True}
-        for entry in body.get("entry", []):
-            for change in entry.get("changes", []):
-                if change.get("field") != "messages":
-                    continue
-                value = change.get("value", {})
-                phone_id = value.get("metadata", {}).get("phone_number_id", "")
-                for delivery in value.get("statuses", []):
-                    await asyncio.to_thread(record_delivery, phone_id, delivery)
-                names = {
-                    c.get("wa_id"): c.get("profile", {}).get("name", "")
-                    for c in value.get("contacts", [])
-                }
-                for message in value.get("messages", []):
-                    await asyncio.to_thread(
-                        receive,
-                        phone_id,
-                        message,
-                        names.get(message.get("from"), ""),
-                        pool,
-                    )
+        changes = [change for entry in body.get("entry", []) for change in entry.get("changes", [])] \
+            if body.get("object") == "whatsapp_business_account" else []
+        phones = [change.get("value", {}).get("metadata", {}).get("phone_number_id", "") for change in changes]
+        if any(not isinstance(phone, str) for phone in phones):
+            raise ValueError()
+        with Session() as db:
+            channels = {channel.phone_number_id: channel.token_env for channel in db.scalars(
+                select(Channel).where(Channel.phone_number_id.in_(set(phones))))} if phones else {}
+        secrets = {app_secret(token_env) for token_env in channels.values()} if channels else {app_secret()}
+        # Valida o lote inteiro antes de registrar recibos ou iniciar conversas.
+        if not all(secrets):
+            raise HTTPException(503, "Webhook não configurado")
+        for secret in secrets:
+            expected = "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(expected, request.headers.get("x-hub-signature-256", "")):
+                raise HTTPException(401, "Assinatura inválida")
+        for change, phone_id in zip(changes, phones):
+            if change.get("field") != "messages" or phone_id not in channels:
+                continue
+            value = change.get("value", {})
+            for delivery in value.get("statuses", []):
+                await asyncio.to_thread(record_delivery, phone_id, delivery)
+            names = {
+                c.get("wa_id"): c.get("profile", {}).get("name", "")
+                for c in value.get("contacts", [])
+            }
+            for message in value.get("messages", []):
+                await asyncio.to_thread(
+                    receive,
+                    phone_id,
+                    message,
+                    names.get(message.get("from"), ""),
+                    pool,
+                )
     except (ValueError, TypeError, KeyError, AttributeError):
         raise HTTPException(400, "Evento inválido")
     return {"ok": True}

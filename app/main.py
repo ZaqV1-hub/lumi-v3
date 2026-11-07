@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
 from hashlib import sha256
 from pathlib import Path
+import os
 
 from fastapi import FastAPI, Request, HTTPException, Depends
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .db import Base, Session
@@ -11,7 +12,7 @@ from .seed import seed
 from .auth_routes import router as auth_router
 from .onboarding_routes import router as onboarding_router
 from .admin import router as admin_router
-from .client import router as client_router
+from .client import router as client_router, private_simulator_user
 from .images import router as image_router
 from .media_models import ContactGate
 from .tool_models import ToolContract
@@ -36,6 +37,7 @@ from .simulation import router as simulation_router
 from .instagram.comment_admin import router as comment_admin_router
 from .role_instructions import router as role_instructions_router
 from .access import console_user
+from .tenant_ai_routes import router as tenant_ai_router
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -45,7 +47,8 @@ async def lifespan(_):
     load_config()
     active_engine = Session.kw["bind"]
     Base.metadata.create_all(active_engine)
-    seed()
+    if os.getenv("LUMI_SEED_DEMO", "true").lower() in {"true", "1"}:
+        seed()
     with active_engine.begin() as connection:
         connection.execute(update(ContactGate).values(pending=0))
     yield
@@ -63,6 +66,7 @@ app.include_router(whatsapp_registration_router)
 app.include_router(instagram_admin_router)
 app.include_router(incoming_router)
 app.include_router(usage_router)
+app.include_router(tenant_ai_router)
 app.include_router(console_access_router)
 app.include_router(console_issues_router)
 app.include_router(console_metrics_router)
@@ -76,6 +80,14 @@ app.mount("/static", StaticFiles(directory=ROOT / "web"), name="static")
 
 @app.middleware("http")
 async def console_audit(request, call_next):
+    if os.getenv("LUMI_PRIVATE_SIMULATOR", "false").lower() in {"true", "1"} and request.url.path.startswith("/api/client/"):
+        from .models import VisitorSession
+        with Session() as db:
+            visitor = db.get(VisitorSession, request.url.path.split("/")[3])
+            try:
+                private_simulator_user(request, visitor.tenant_id if visitor else None)
+            except HTTPException as exc:
+                return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
     denied = guard_chat(request)
     if denied is not None:
         return denied
@@ -85,7 +97,6 @@ async def console_audit(request, call_next):
     if request.url.path.startswith("/api/console/business/clients/"):
         tid=request.path_params.get("tid")
     if actor and response.status_code<400 and (request.method not in {"GET","HEAD","OPTIONS"} or (request.url.path=="/api/me" and tid)):
-        from .db import Session
         with Session.begin() as db:
             db.add(ConsoleAudit(actor_id=actor,tenant_id=tid,
                 action="tenant.view" if request.method=="GET" else request.method+" "+request.url.path,
@@ -113,11 +124,23 @@ def home(request: Request):
 @app.get("/chat/{slug}")
 def client_page(slug: str,request: Request):
     from .access import current_user
+    if os.getenv("LUMI_PRIVATE_SIMULATOR", "false").lower() in {"true", "1"}:
+        from sqlalchemy import select
+        from .models import Tenant
+        with Session() as db:
+            tenant = db.scalar(select(Tenant).where(Tenant.slug == slug))
+            if not tenant:
+                raise HTTPException(404, "Empresa não encontrada")
+            try:
+                private_simulator_user(request, tenant.id)
+            except HTTPException as exc:
+                if exc.status_code == 401:
+                    return RedirectResponse("/admin", status_code=307)
+                raise
     back=False
     if request.query_params.get("tenant"):
         user=current_user(request)
         if user.console_role=="brevia":
-            from .db import Session
             from .models import Tenant
             with Session() as db:
                 if db.get(Tenant,user.tenant_id).slug!=slug:raise HTTPException(403,"Empresa diferente da selecionada")

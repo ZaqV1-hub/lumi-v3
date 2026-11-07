@@ -68,7 +68,7 @@ class OnboardingTest(unittest.TestCase):
 
     def test_handover_discards_reply_when_operator_intervenes(self):
         from app import client
-        def intervene(_):
+        def intervene(_, **kwargs):
             self.admin.post("/api/admin/conversations/" + self.cid + "/claim").raise_for_status()
             self.admin.post("/api/admin/conversations/" + self.cid + "/release").raise_for_status()
             return {"reply": "Resposta antiga", "action": "handover"}
@@ -122,7 +122,7 @@ class OnboardingTest(unittest.TestCase):
             json={"title": "Ataque", "description": "Troca"}).status_code, 404)
 
     def test_human_intervention_discards_profile_and_response(self):
-        def intervene(_):
+        def intervene(_, **kwargs):
             self.admin.post("/api/admin/conversations/" + self.cid + "/claim").raise_for_status()
             return {"reply": "Olá, Adalberto", "action": "none", "image_id": None,
                 "profile_updates": [{"objective_id": self.name, "value": "Adalberto", "evidence": "Adalberto"}]}

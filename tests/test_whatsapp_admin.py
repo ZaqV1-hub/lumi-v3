@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, AsyncMock
 import httpx
+from dotenv import dotenv_values
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 
@@ -63,6 +64,75 @@ class WhatsappAdminTest(unittest.TestCase):
         self.path.write_text('CHANNEL_TOKEN=fresh-token\n')
         with patch.object(config,'config_path',return_value=self.path),patch.dict(os.environ,{'CHANNEL_TOKEN':'expired-token'}):
             self.assertEqual(config.access_token('CHANNEL_TOKEN'),'fresh-token')
+
+    def test_token_renewal_preserves_specific_secret_without_changing_shared_channel(self):
+        from app.whatsapp import admin, config
+        from app.whatsapp.models import Channel
+        for secret in ['custom-app-secret', '']:
+            with self.subTest(secret_present=bool(secret)):
+                with self.session.begin() as db:
+                    db.get(Channel,'111111').token_env='CUSTOM_TOKEN'
+                    db.get(Channel,'222222').token_env='CUSTOM_TOKEN'
+                self.path.write_text('CUSTOM_TOKEN=old-shared-token\nCUSTOM_TOKEN_APP_SECRET='+secret+'\nWHATSAPP_APP_SECRET=wrong-global\n')
+                token='fake-new-token-for-tests-only'
+                with patch.object(admin,'config_path',return_value=self.path),patch.object(config,'config_path',return_value=self.path),patch.object(admin.httpx,'AsyncClient') as client:
+                    client.return_value.__aenter__.return_value.get=AsyncMock(return_value=httpx.Response(200,json={'id':'111111'}))
+                    response=self.http.post('/api/admin/whatsapp/token',json={'phone_id':'111111','token':token})
+                    self.assertEqual(response.status_code,200)
+                    self.assertNotIn(token,response.text)
+                    self.assertEqual(config.app_secret('WHATSAPP_CHANNEL_TOKEN_111111'),secret)
+                    self.assertEqual(config.app_secret('CUSTOM_TOKEN'),secret)
+                    values=dotenv_values(self.path)
+                    self.assertEqual(values['WHATSAPP_CHANNEL_TOKEN_111111_APP_SECRET'],secret)
+                    self.assertEqual(values['CUSTOM_TOKEN'],'old-shared-token')
+                    self.assertEqual(values['WHATSAPP_APP_SECRET'],'wrong-global')
+                    with self.session() as db:
+                        self.assertEqual(db.get(Channel,'111111').token_env,'WHATSAPP_CHANNEL_TOKEN_111111')
+                        self.assertEqual(db.get(Channel,'222222').token_env,'CUSTOM_TOKEN')
+
+    def test_renewal_rechecks_current_channel_reference_after_meta_validation(self):
+        from app.whatsapp import admin, config
+        from app.whatsapp.models import Channel
+        self.path.write_text('LATEST_TOKEN_APP_SECRET=latest-app-secret\nWHATSAPP_APP_SECRET=wrong-global\n')
+        async def validated(*args, **kwargs):
+            with self.session.begin() as db:
+                db.get(Channel,'111111').token_env='LATEST_TOKEN'
+            return httpx.Response(200,json={'id':'111111'})
+        with patch.object(admin,'config_path',return_value=self.path),patch.object(config,'config_path',return_value=self.path),patch.object(admin.httpx,'AsyncClient') as client:
+            client.return_value.__aenter__.return_value.get=AsyncMock(side_effect=validated)
+            response=self.http.post('/api/admin/whatsapp/token',json={'phone_id':'111111','token':'fake-new-token-for-tests-only'})
+            self.assertEqual(response.status_code,200)
+            self.assertEqual(config.app_secret('WHATSAPP_CHANNEL_TOKEN_111111'),'latest-app-secret')
+
+    def test_renewal_does_not_write_files_if_channel_moves_to_another_tenant(self):
+        from app.whatsapp import admin, config
+        from app.whatsapp.models import Channel
+        original='WHATSAPP_APP_SECRET=legacy-test-secret\n'
+        self.path.write_text(original)
+        async def validated(*args, **kwargs):
+            with self.session.begin() as db:
+                db.get(Channel,'111111').tenant_id=db.get(Channel,'222222').tenant_id
+            return httpx.Response(200,json={'id':'111111'})
+        with patch.object(admin,'config_path',return_value=self.path),patch.object(config,'config_path',return_value=self.path),patch.object(admin.httpx,'AsyncClient') as client:
+            client.return_value.__aenter__.return_value.get=AsyncMock(side_effect=validated)
+            response=self.http.post('/api/admin/whatsapp/token',json={'phone_id':'111111','token':'fake-new-token-for-tests-only'})
+            self.assertEqual(response.status_code,404)
+            self.assertEqual(self.path.read_text(),original)
+
+    def test_renewal_refuses_destination_credential_shared_with_another_channel(self):
+        from app.whatsapp import admin, config
+        from app.whatsapp.models import Channel
+        original='WHATSAPP_CHANNEL_TOKEN_111111=other-channel-token\n'
+        self.path.write_text(original)
+        with self.session.begin() as db:
+            db.get(Channel,'222222').token_env='WHATSAPP_CHANNEL_TOKEN_111111'
+        with patch.object(admin,'config_path',return_value=self.path),patch.object(config,'config_path',return_value=self.path),patch.object(admin.httpx,'AsyncClient') as client:
+            client.return_value.__aenter__.return_value.get=AsyncMock(return_value=httpx.Response(200,json={'id':'111111'}))
+            response=self.http.post('/api/admin/whatsapp/token',json={'phone_id':'111111','token':'fake-new-token-for-tests-only'})
+            self.assertEqual(response.status_code,409)
+            self.assertEqual(self.path.read_text(),original)
+            with self.session() as db:
+                self.assertEqual(db.get(Channel,'111111').token_env,'WHATSAPP_ACCESS_TOKEN')
 
     def test_registration_scoped_verified_only_and_pin_not_returned(self):
         from app.whatsapp import registration

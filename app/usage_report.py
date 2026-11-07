@@ -25,7 +25,7 @@ def summary(rows):
         'input_tokens':sum(row.input_tokens or 0 for row in rows),
         'cached_tokens':sum(row.cached_tokens or 0 for row in rows),
         'output_tokens':sum(row.output_tokens or 0 for row in rows),
-        'estimated_api_usd':sum(costs.values()),
+        'estimated_api_usd':sum(costs.values()) if costs or not rows else None,
         'average_complete_message_usd':mean(complete) if complete else None,
         'messages_without_complete_cost':len(incomplete),
         'failed_calls':sum(row.status!='completed' for row in rows),

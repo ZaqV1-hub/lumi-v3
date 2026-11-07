@@ -5,6 +5,7 @@ import tempfile
 import time
 from pathlib import Path
 from .usage import record
+from .tenant_ai import configuration
 DEFAULT_MODEL = "gpt-6.1-terra"
 
 
@@ -22,9 +23,13 @@ CODEX_CONFIG = {
 }
 
 
-def reply(prompt: str, tools=None, images=None):
-    if os.getenv("LUMI_PROVIDER", "codex") == "demo":
-        return "Estou no modo de demonstração. Configure o provider Codex para receber uma resposta gerada por IA."
+def reply(prompt: str, tools=None, images=None, *, tenant_id=None):
+    config = configuration(tenant_id)
+    provider, model = config.provider, config.model
+    if provider == "demo":
+        return "Estou no modo de demonstração. Configure o provider Codex ou OpenAI para receber uma resposta gerada por IA."
+    if provider not in {"codex", "codex_gateway", "openai"}:
+        raise RuntimeError("O provider do tenant deve ser codex, codex_gateway, openai ou demo.")
     schema = {
         "type": "object",
         "properties": {
@@ -47,10 +52,15 @@ def reply(prompt: str, tools=None, images=None):
         "required": ["reply", "action", "image_id", "profile_updates", "asked_objective_id", "tool_call"],
         "additionalProperties": False,
     }
+    if provider == "openai":
+        from .openai_provider import reply as openai_reply
+        return openai_reply(prompt, schema, images, model=model, api_key=config.api_key)
+    if provider == "codex_gateway":
+        from .codex_gateway_provider import reply as gateway_reply
+        return gateway_reply(prompt, schema, images, model=model)
     with tempfile.TemporaryDirectory(prefix="lumi-codex-") as folder:
         path = Path(folder) / "reply.schema.json"
         path.write_text(json.dumps(schema), encoding="utf-8")
-        model = os.getenv("LUMI_CODEX_MODEL", DEFAULT_MODEL)
         command = [
                 "codex",
                 "exec",

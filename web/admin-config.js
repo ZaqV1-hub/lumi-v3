@@ -1,6 +1,6 @@
 /* ---------------- Configurações ---------------- */
 function renderCfg() {
-  if(ui.tab==="usage")ui.tab="instrucoes";
+  if(ui.tab==="usage" || (ui.tab==="ai" && me.role!=="brevia"))ui.tab="instrucoes";
   const tabs = [
     ["instrucoes", "Instruções"],
     ["papeis", "Instruções por papel"],
@@ -9,6 +9,7 @@ function renderCfg() {
     ["onboarding", "Onboarding"],
     ["comments", "Comentários Instagram"],
   ];
+  if(me.role==="brevia")tabs.push(["ai", "Inteligência artificial"]);
   $("#content").innerHTML =
     `<div class="cfg ${ui.tab === "imgs" ? "wide" : ""}">
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${ui.tab === k}">${l}</button>`).join("")}</div>
@@ -22,7 +23,7 @@ function renderCfg() {
           renderCfg();
         }),
     );
-  ({ instrucoes: drawInstr, papeis: drawRoleInstructions, kb: drawKb, imgs: drawImgs, onboarding: drawOnboarding, comments: drawComments })[ui.tab]();
+  ({ instrucoes: drawInstr, papeis: drawRoleInstructions, kb: drawKb, imgs: drawImgs, onboarding: drawOnboarding, comments: drawComments, ai: drawAi })[ui.tab]();
 }
 const dirty = () =>
   draft.identity !== saved.identity ||

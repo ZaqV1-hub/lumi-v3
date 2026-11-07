@@ -1,4 +1,3 @@
-import os
 from datetime import date,datetime,time,timedelta,timezone
 from fastapi import APIRouter,Depends,HTTPException,Query,Response
 from sqlalchemy import select
@@ -8,7 +7,7 @@ from .db import Session
 from .models import Message
 from .usage_models import ModelCall,ResponseRun
 from .usage_report import report,ZONE
-from .providers import DEFAULT_MODEL
+from .tenant_ai import TenantAI, public_configuration
 
 router=APIRouter()
 
@@ -33,10 +32,10 @@ def usage(response: Response,conversation_id: str | None=None,start_date: date |
         dated=list(db.execute(select(ResponseRun,Message.created_at).join(Message,Message.id==ResponseRun.message_id).where(
             ResponseRun.tenant_id==user.tenant_id,ResponseRun.message_id.in_(measured))))
         data=report(rows,dated,start,end)
-        provider=os.getenv('LUMI_PROVIDER','codex')
+        config=public_configuration(db.get(TenantAI,user.tenant_id))
         return {**data,'scope':'Todas as chamadas medidas no período selecionado','start_date':start.isoformat(),
             'end_date':end.isoformat(),'models':sorted({row.model for row in rows}),'available_models':available,
-            'configured_provider':provider,'configured_model':os.getenv('LUMI_CODEX_MODEL',DEFAULT_MODEL) if provider=='codex' else None,
-            'note':'Codex local e transcrição local: custo de API zero. Tokens e tempos continuam medidos. Custo de API será contabilizado quando um provider de API for utilizado.',
+            'configured_provider':config['provider'],'configured_model':config['model'] or None,
+            'note':'Codex local e transcrição local: custo de API zero. OpenAI API: estimativa em USD pela tarifa Standard e tokens medidos, incluindo gravação de cache quando informada. Não é uma fatura reconciliada; valores incompletos ficam desconhecidos.',
             'latency_note':'Tempo total por mensagem, incluindo fila, transcrição e ferramentas. Com filtro de modelo, considera mensagens que utilizaram esse modelo.',
             'recent_scope':'Até 50 chamadas mais recentes do filtro; os totais e gráficos consideram todo o período.'}

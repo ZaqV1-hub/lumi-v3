@@ -2,7 +2,6 @@
 import argparse
 import io
 import json
-import os
 from pathlib import Path
 import sqlite3
 import sys
@@ -16,6 +15,7 @@ from sqlalchemy import create_engine
 from app import main, client, providers
 from app.db import Base, Session, default_dir
 from app.usage import estimate
+from app.tenant_ai import AIConfig
 
 
 def fixtures():
@@ -99,7 +99,8 @@ def main_benchmark():
         return result
     for model in args.models:
         for name, prompt, kwargs in cases:
-            with patch.dict(os.environ, {'LUMI_CODEX_MODEL':model}), \
+            # O benchmark escolhe Codex sem ler ou alterar a configuração ativa do tenant.
+            with patch.object(providers, 'configuration', return_value=AIConfig('codex', model)), \
                     patch.object(providers.subprocess, 'run', side_effect=run), \
                     patch.object(providers, 'record') as record:
                 answer = providers.reply(prompt, **kwargs)

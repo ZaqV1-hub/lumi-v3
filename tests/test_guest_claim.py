@@ -43,7 +43,7 @@ const {token,key}=JSON.parse(text), cpf='52998224725';
 console.log(JSON.stringify([
   !!decodeGuestClaim(token,cpf,key),
   !!decodeGuestClaim(token,'12345678909',key),
-  !!decodeGuestClaim(token.slice(0,20)+'X'+token.slice(21),cpf,key),
+  !!decodeGuestClaim(token.slice(0,20)+(token[20]==='X'?'Y':'X')+token.slice(21),cpf,key),
   !!decodeGuestClaim(token,cpf,key,Date.now()+3601000),
   !!decodeGuestClaim(token,cpf,Buffer.alloc(32).toString('base64'))
 ]));""".replace("MODULE", json.dumps(module))

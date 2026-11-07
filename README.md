@@ -1,5 +1,7 @@
 # Lumi v3
 
+Homologação e produção usam a release `20261107-tenant-ai-r3`. `develop` corresponde à homologação e `main` à produção; veja [versionamento e publicação](docs/versionamento-e-publicacao.md). O WhatsApp Rincão de produção aguarda a verificação Meta e ainda não foi transferido. Operação de homologação: [operação, acesso privado, gateway Codex, WhatsApp e retorno](docs/homologacao-vm.md). A VM usa PostgreSQL. Cada tenant escolhe Codex local/gateway ou OpenAI API com chave própria, em Configurações → Inteligência artificial. Veja [configuração, migração e proteção de credenciais](docs/ia-por-tenant.md).
+
 Para desenvolver ou assumir a manutenção, leia [a passagem para a equipe](docs/desenvolvimento-e-passagem.md) e as regras do [AGENTS.md](AGENTS.md). Elas explicam configuração de tenants, serviços externos, alterações no núcleo e testes. O núcleo pode ser mantido pelos desenvolvedores autorizados; a divisão em serviços não restringe todas as correções a Isaque. Os exemplos de instalação abaixo não são um inventário atualizado dos logins e canais ativos: confira a configuração do ambiente antes de executar.
 
 Laboratório local multi-tenant com admin autenticado e simulador de cliente separado. O admin usa o HTML e o CSS originais enviados como referência, incluindo as fontes Poppins e Inter. Login, conversas e formulários de personalidade, conhecimento e imagens estão conectados ao banco. O dashboard mostra contagens reais do simulador; estatísticas fictícias do protótipo foram substituídas. As fontes usam o mesmo Google Fonts do HTML original e precisam de conexão para o primeiro carregamento.
@@ -36,11 +38,11 @@ Atendimentos conta conversas distintas que receberam mensagem do cliente no per�
 
 ## Dados e banco
 
-SQLite permite rodar sem Docker. Os dados ficam em `%LOCALAPPDATA%\Lumi\lumi.db`; `LUMI_DATA_DIR` muda essa pasta. Para Postgres, inicie Docker Desktop, rode `docker compose up -d db` e configure `DATABASE_URL=postgresql+psycopg://lumi:lumi_local@localhost:5432/lumi` antes de iniciar a Lumi. O Postgres ainda precisa ser validado neste computador.
+SQLite continua disponível sem configuração. Os dados ficam em `%LOCALAPPDATA%\Lumi\lumi.db`; `LUMI_DATA_DIR` muda essa pasta. `DATABASE_URL` tem precedência e permite usar PostgreSQL. Para desenvolvimento com PostgreSQL 17, importação do backup sanitizado e configuração de IA, siga [o guia local](docs/desenvolvimento-local.md). O Compose usa um banco exclusivo na porta local 55439 e exige senha privada; não reutilize um volume de outro ambiente.
 
 As tabelas são criadas na inicialização. Novas tabelas desta etapa são adicionadas sem apagar os dados anteriores. Ainda não há sistema de migrations para alterar colunas existentes. Os exemplos antigos permanecem no banco, mas não são exibidos nos novos logins.
 
-`demo/tenants.json` contém somente os dados fictícios de instalação. O seed insere Rincão e Breve uma vez e não sobrescreve edições. Instruções, personalidade, conhecimento, contatos, conversas, usuários e contratos de funcionalidades são lidos do banco durante o uso. Não há lógica específica do Rincão no atendimento.
+`demo/tenants.json` contém somente os dados fictícios de instalação. O seed insere Rincão e Breve uma vez e não sobrescreve edições. Defina `LUMI_SEED_DEMO=false` para uma importação sanitizada não receber contas ou conteúdo de demonstração. Instruções, personalidade, conhecimento, contatos, conversas, usuários e contratos de funcionalidades são lidos do banco durante o uso. Não há lógica específica do Rincão no atendimento.
 
 ## Atendimento humano
 
@@ -76,7 +78,7 @@ O prompt usa identidade e funcionalidades autorizadas, personalidade e conhecime
 
 O receptor da Cloud API, o vínculo por número e a entrega de textos e imagens estão implementados. A ativação depende de configurar o aplicativo e o número de teste na Meta. Consulte [a configuração do WhatsApp](docs/whatsapp.md). O receptor roda na porta 8002, separada do admin, e é o único serviço que deve ser exposto pelo túnel HTTPS.
 
-O provider fica em `app/providers.py` e usa Codex CLI com pasta temporária, ambiente reduzido e esforço de raciocínio baixo. No teste local, uma resposta simples levou aproximadamente 6 segundos, contra aproximadamente 29 segundos na versão anterior; a duração varia com o modelo e o serviço. O handover explícito também aguarda uma resposta do modelo antes do encaminhamento; por isso, não usa mais o atalho sem inferência. O CLI ainda inicia um processo a cada inferência; uma API de modelo ou conexão persistente poderá reduzir esse custo depois. Defina `LUMI_PROVIDER=demo` para resposta fixa sem usar o Codex.
+O provider fica em `app/providers.py`. Provider, modelo e chave são escolhidos por tenant no painel Brevia; não há `OPENAI_API_KEY` nem seleção global. `codex` executa o CLI local, `codex_gateway` usa o gateway configurado no servidor, `openai` usa a Responses API e `demo` produz resposta fixa sem inferência. Tenant sem configuração falha fechado, sem usar credencial de outro. Ferramentas continuam validadas pelo núcleo. Leia [IA por tenant](docs/ia-por-tenant.md).
 
 Este laboratório usa dados fictícios e serve apenas em localhost. O Codex CLI possui ferramentas locais; a pasta temporária e o modo de leitura não garantem isolamento completo do computador. Antes de dados reais, precisamos de um provider sem acesso ao sistema de arquivos ou um ambiente isolado para o processo, além de credenciais e operação adequadas à implantação.
 
@@ -84,7 +86,7 @@ Este laboratório usa dados fictícios e serve apenas em localhost. O Codex CLI 
 
 ```powershell
 pip install -r requirements-dev.txt
-python -m unittest discover -s tests
+python scripts/test-local.py
 ```
 
 O teste confere login, acesso entre tenants, contexto, handover, avisos de entrada e saída, nome do atendente, descarte de respostas antigas, upload e envio de imagens e proibição de imagem de outro tenant. A regra de spam é verificada com três requisições simultâneas, dois avisos, bloqueio silencioso posterior e desbloqueio pelo admin. O Codex também foi testado com a saída estruturada de seleção de imagem. O serviço HTTP de handover foi verificado com os dois processos locais.
@@ -122,7 +124,7 @@ A tela de `/chat/{tenant}` usa o visual do HTML de referência, sem respostas ou
 
 O HTML do simulador é servido sem cache, com URLs de CSS e JavaScript versionadas automaticamente pelo conteúdo. Assim, uma atualização do layout não reutiliza scripts antigos do navegador. O teste de interface cobre também essa situação e a retomada de uma sessão existente após recarregar.
 
-**Consumo e velocidade** é uma página no menu do tenant, abaixo de Configurações, exclusiva da equipe Brevia. O usuário do cliente vê apenas Dashboard, Conversas e Configurações, e a API também bloqueia o relatório para esse login. A página tem filtros de período/modelo, gráficos diários, comparativo por modelo, chamadas recentes e resumo CSV. Ela mostra tokens medidos, modelo, tempo e custo de API em USD. Codex local e transcrição local aparecem com custo de API zero; um provider de API passará a contabilizar o custo quando utilizado. O consumo da assinatura Codex é separado desse valor. O padrão agora é GPT-6.1 Terra com esforço low e um perfil de atendimento mais enxuto, preservando o contexto completo do tenant. `LUMI_CODEX_MODEL=gpt-6-luna` permite experimentar Luna; `LUMI_CODEX_MODEL=gpt-6.1-sol` seleciona Sol. Reinicie a API após mudar essa variável. A comparação e as limitações estão em [docs/provider-cost.md](docs/provider-cost.md). O fluxo de escola aguarda o formulário fornecido pelo usuário, e o WhatsApp continua pausado. As alterações desta etapa permanecem locais, sem commit/push.
+**Consumo e velocidade** é uma página no menu do tenant, abaixo de Configurações, exclusiva da equipe Brevia. O usuário do cliente vê apenas Dashboard, Conversas e Configurações, e a API também bloqueia o relatório para esse login. A página tem filtros de período/modelo, gráficos diários, comparativo por modelo, chamadas recentes e resumo CSV. Ela mostra tokens medidos, modelo, tempo e custo de API em USD. Codex local e transcrição local aparecem com custo de API zero; um provider de API passará a contabilizar o custo quando utilizado. O consumo da assinatura Codex é separado desse valor. O padrão agora é GPT-6.1 Terra com esforço low e um perfil de atendimento mais enxuto, preservando o contexto completo do tenant. O modelo é escolhido por tenant no painel e passa a valer na próxima inferência, sem reinício. No gateway, ele também precisa estar na lista de modelos permitidos. A comparação e as limitações estão em [docs/provider-cost.md](docs/provider-cost.md). O fluxo de escola aguarda o formulário fornecido pelo usuário, e o WhatsApp continua pausado. O código desta etapa está incluído na sincronização das branches; a ativação dos canais depende da configuração e do aceite de cada ambiente.
 
 ## Gestão Brevia e instruções por papel
 
