@@ -14,7 +14,7 @@ A documentação no Git inclui decisões posteriores à publicação: branches, 
 
 Um push em `develop` inicia a publicação automática em homologação; um push em `main`, em produção. Integre em `main` somente a versão aprovada para produção. O workflow também pode ser reexecutado manualmente nessas branches. O commit, a branch e os hashes ficam no artefato e no estado de implantação da VM. Não mova uma referência de release antiga para código diferente.
 
-O workflow [Deploy Lumi V3](../.github/workflows/deploy.yml) testa o retorno no Windows e a aplicação com SQLite/PostgreSQL isolados. Depois empacota somente arquivos de runtime do commit, verifica se ele ainda é o mais recente da branch e publica por SSH. As execuções são serializadas entre os ambientes e não cancelam um deploy em andamento. Consulte [deploy automático](deploy-automatico.md) para configuração, verificações, retorno e limites. O estado inicial e as rotas dos ambientes estão em [homologação](homologacao-vm.md) e [produção](producao-vm.md).
+O workflow [Deploy Lumi V3](../.github/workflows/deploy.yml) testa o retorno no Windows e a aplicação com SQLite/PostgreSQL isolados. Depois empacota somente arquivos de runtime do commit, verifica se ele ainda é o mais recente da branch e publica por SSH. As execuções são serializadas por branch e não cancelam um deploy em andamento. As filas de HML e PROD são independentes para que um push de um ambiente não descarte a publicação pendente do outro. Consulte [deploy automático](deploy-automatico.md) para configuração, verificações, retorno e limites. O estado inicial e as rotas dos ambientes estão em [homologação](homologacao-vm.md) e [produção](producao-vm.md).
 
 ## Conteúdo privado
 

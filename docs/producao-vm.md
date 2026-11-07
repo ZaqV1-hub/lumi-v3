@@ -12,7 +12,7 @@ O IIS termina HTTPS e encaminha o painel à porta 8014. As rotas `/webhooks/what
 
 ## Release e ambientes
 
-A release instalada é `20261107-tenant-ai-r3`, em `C:\LumiV3-PROD\releases\20261107-tenant-ai-r3`. O hash do pacote está registrado em [versionamento e publicação](versionamento-e-publicacao.md); `release-manifest.json` identifica os arquivos de código publicados. O pacote e a configuração privada são artefatos separados; não copiar segredos, banco, logs ou ambiente virtual para o repositório.
+A release inicial sincronizada foi `20261107-tenant-ai-r3`, preservada em `C:\LumiV3-PROD\releases\20261107-tenant-ai-r3`. O [deploy automático](deploy-automatico.md) passa a instalar releases `gha-<sha12>-<run_id>-<attempt>`; confira a atual em `C:\LumiV3-PROD\deployment-state.json` e na junction `current`. O hash do pacote está registrado em [versionamento e publicação](versionamento-e-publicacao.md); `release-manifest.json` identifica os arquivos de código publicados. O pacote e a configuração privada são artefatos separados; não copiar segredos, banco, logs ou ambiente virtual para o repositório.
 
 HML recebeu a mesma release, com painel/receptor em 8012/8013 e PostgreSQL em 5442. Os bancos e arquivos privados de HML e PROD permanecem separados. Rincão HML continua no Codex por gateway; Rincão PROD usa sua OpenAI API e não depende do Mac para inferência. A operação histórica de HML está em [homologação na VM](homologacao-vm.md).
 
@@ -48,7 +48,7 @@ A estimativa usa as [tarifas oficiais](https://developers.openai.com/api/docs/pr
 
 ## Preservação e retorno
 
-O backup anterior à release está em `C:\LumiV3-PROD\backups\before-20261107-tenant-ai-r3.dump`; backups e releases anteriores foram preservados. A existência do dump não comprova restauração integral nem substitui uma rotina de backup. Preserve também a configuração privada e a chave Fernet, separadas do dump. Não restaure um banco antigo sobre conversas novas para desfazer somente uma publicação de código.
+O backup anterior à release inicial está em `C:\LumiV3-PROD\backups\before-20261107-tenant-ai-r3.dump`; backups e releases anteriores foram preservados. A existência do dump não comprova restauração integral nem substitui uma rotina de backup. Preserve também a configuração privada e a chave Fernet, separadas do dump. Não restaure um banco antigo sobre conversas novas para desfazer somente uma publicação de código.
 
 O script `scripts/windows/switch-prod-proxy.ps1` guarda o proxy anterior em `C:\LumiV3-PROD\backups\web.config.before-v3` e o estado/hashes em `proxy-state.json`. `-Restore` verifica o hash da configuração aplicada antes de restaurar e recusa sobrescrever uma mudança posterior. Execute a cópia revisada desse script em PowerShell administrativo com `-Restore` para retornar o proxy ao backend legado; não restaure o IIS inteiro nem altere outros sites da VM. O script de retorno foi revisado, mas sua execução na URL ativa não está registrada nesta entrega.
 

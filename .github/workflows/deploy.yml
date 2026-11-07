@@ -8,9 +8,9 @@ on:
 permissions:
   contents: read
 
-# A VM é compartilhada: não sobrepor deploys nem cancelar uma troca em andamento.
+# Separar as filas evita que um push de PROD descarte um HML pendente (e vice-versa).
 concurrency:
-  group: lumi-v3-rincao-deploy
+  group: lumi-v3-rincao-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

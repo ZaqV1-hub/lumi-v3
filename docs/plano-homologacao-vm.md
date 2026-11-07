@@ -4,7 +4,7 @@ Atualizado em 07/11/2026. O usuário autorizou a implantação na VM Rincão e a
 
 ## Estado comprovado
 
-HML e PROD executam `20261107-tenant-ai-r3`. Na conferência para sincronização do GitHub, os 186 arquivos de cada instalação coincidiram com o manifesto original e os quatro serviços Windows estavam em execução. O registro e os hashes estão em [versionamento e publicação](versionamento-e-publicacao.md). Os arquivos executáveis do checkout coincidem com o pacote; a documentação recebeu atualizações posteriores.
+Na sincronização inicial, HML e PROD executavam `20261107-tenant-ai-r3`. Após habilitar a automação, a release atual de cada ambiente deve ser consultada em `deployment-state.json`; o fluxo está em [deploy automático](deploy-automatico.md). Na conferência para sincronização do GitHub, os 186 arquivos de cada instalação coincidiram com o manifesto original e os quatro serviços Windows estavam em execução. O registro e os hashes estão em [versionamento e publicação](versionamento-e-publicacao.md). Os arquivos executáveis do checkout coincidem com o pacote; a documentação recebeu atualizações posteriores.
 
 PostgreSQL usa bancos e usuários exclusivos por ambiente. A importação preservou a configuração sanitizada recebida, sem migrar históricos, logins ou canais antigos. A tabela aditiva de IA guarda provider, modelo e chave cifrada por tenant, sem fallback global. Preserve banco e chave Fernet separadamente.
 

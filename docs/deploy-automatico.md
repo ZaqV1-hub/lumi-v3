@@ -18,7 +18,7 @@ Checkout e setup-python usam revisões fixas. O token do workflow tem somente `c
 6. Parar somente receptor e painel V3 daquele ambiente, aguardando encerramento. Criar backup do banco exclusivo e validar seu catálogo antes de trocar `current`.
 7. Iniciar painel/receptor, conferir HTTP do painel, rejeição do challenge sem credencial e consulta de leitura ao banco. Confirmar que arquivos privados e XMLs de serviço não mudaram. Registrar commit, release, hash e release anterior em `deployment-state.json`.
 
-Cada execução usa `gha-<sha12>-<run_id>-<attempt>`. Releases e backups anteriores são preservados. O script nunca remove o destino de uma junction: remove apenas o vínculo `current`, depois de conferir seu tipo. Publicações são serializadas no Actions; uma trava na VM também impede sobreposição por execução manual.
+Cada execução usa `gha-<sha12>-<run_id>-<attempt>`. Releases e backups anteriores são preservados. O script nunca remove o destino de uma junction: remove apenas o vínculo `current`, depois de conferir seu tipo. Publicações do mesmo ambiente são serializadas no Actions; uma trava exclusiva por ambiente na VM também impede sobreposição por execução manual. HML e PROD têm filas independentes, serviços, diretórios e bancos distintos; um push de uma branch não cancela a publicação pendente da outra.
 
 ## Retorno e limites
 
