@@ -1,5 +1,7 @@
 # Lumi V3 — produção na VM Rincão
 
+Atualização operacional de 09/11/2026: os serviços da Lumi antiga, inclusive produção, foram parados por autorização do usuário. V3 e bancos continuam ativos; as rotas que ainda apontam à Spark ficam indisponíveis. Nenhum callback Meta foi migrado nessa parada. O inventário, o estado de inicialização e o retorno estão na [passagem operacional](plano-homologacao-vm.md#recursos-e-limites). Os registros anteriores abaixo descrevem o estado na data de cada implantação.
+
 Estado verificado em 07/11/2026: o painel V3 está publicado em [api.lumi.brevia.company/admin](https://api.lumi.brevia.company/admin), com PostgreSQL próprio e seleção de IA por tenant. O simulador autenticado respondeu com a OpenAI API do Rincão. A transferência do callback WhatsApp de produção ainda está pendente; publicar o painel e cadastrar o canal não comprovam recebimento ou entrega de mensagens reais nesse número.
 
 ## Instalação e rotas

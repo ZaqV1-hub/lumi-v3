@@ -1,5 +1,7 @@
 # Lumi V3 — homologação na VM Rincão
 
+Atualização operacional de 09/11/2026: os serviços da Lumi antiga foram parados por autorização do usuário. V3 e bancos continuam ativos; as rotas que ainda apontam à Spark ficam indisponíveis. O inventário, o estado de inicialização e o retorno estão na [passagem operacional](plano-homologacao-vm.md#recursos-e-limites). Os registros anteriores abaixo descrevem o estado na data de cada implantação.
+
 Implantação autorizada pelo usuário e concluída em 05/11/2026. Painel: https://api-hml.lumi.brevia.company/admin. O simulador exige login, disponível em `/chat/rincao` ou pelos links do painel. A URL anterior do painel independente permanece preservada; o acesso à V3 é pelo endereço acima.
 
 ## Estado entregue
