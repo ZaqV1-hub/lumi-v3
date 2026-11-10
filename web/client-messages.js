@@ -35,6 +35,9 @@ function messageNode(message) {
     const time = document.createElement('time'); time.className = 'num'; time.dateTime = message.created_at;
     time.textContent = new Date(message.created_at).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}); bubble.append(time);
   }
+  if(message.sender==='cliente'&&message.response_status==='failed'){
+    const warning=document.createElement('small');warning.className='response-failed';warning.setAttribute('role','status');warning.textContent='A resposta não foi concluída. Sua mensagem foi salva; você pode tentar novamente.';warning.style.cssText='display:block;margin-top:8px;font-size:12px';bubble.append(warning);
+  }
   row.append(bubble); return row;
 }
 function renderConversation(items, force = false) {

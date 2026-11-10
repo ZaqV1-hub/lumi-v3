@@ -13,7 +13,7 @@ HTTP_CLIENT = httpx.Client
 
 def answer(**changes):
     return {"reply": "Resposta de teste.", "action": "none", "image_id": None,
-            "profile_updates": [], "asked_objective_id": None, "tool_call": None, **changes}
+            "image_intent": "none", "profile_updates": [], "asked_objective_id": None, "tool_call": None, **changes}
 
 
 def response(value=None, **changes):

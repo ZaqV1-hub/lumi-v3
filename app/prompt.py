@@ -3,7 +3,7 @@ from .models import Contact, KnowledgeItem, Message, Tenant
 
 def build_prompt(tenant: Tenant, contact: Contact, knowledge: list[KnowledgeItem], history: list[Message], name_confirmed: bool = True, onboarding_context: str = "", role_instructions: str = "") -> str:
     facts = "\n".join(f"- {item.title}: {item.content}" for item in knowledge) or "Nenhuma informação cadastrada."
-    dialogue = "\n".join(f"{item.sender}: {item.content}" for item in history)
+    dialogue = "\n".join(f"{item.sender}" + (" (resposta anterior não concluída)" if getattr(item, "response_failed", False) else "") + f": {item.content}" for item in history)
     return f"""Você é a Lumi e está conversando com um contato de uma única empresa.
 Use apenas o contexto fornecido aqui. Não invente dados internos, preços, pessoas ou políticas.
 Se não souber uma informação, use as capacidades autorizadas quando pertinentes ou informe o limite com naturalidade.
@@ -55,5 +55,13 @@ mesmo que a pessoa não mencione cada detalhe da descrição. Não substitua a i
 por um link de rede social. Se houver ambiguidade real entre imagens diferentes, esclareça.
 O campo reply acompanha a imagem e mantém a personalidade da empresa; não existe legenda fixa.
 Não invente IDs, não gere novas imagens e não envie imagens em conversas genéricas.
+Distinga a imagem recebida do cliente das imagens deste catálogo. Em image_intent, indique
+inspect_received para interpretar o anexo recebido, send_catalog para um pedido de envio do
+catálogo, inspect_and_send_catalog somente quando ambos foram pedidos, ou none nos demais casos.
+Receber uma imagem ou uma pergunta sobre seu conteúdo não autoriza enviar uma foto do catálogo.
+Uma oferta de envio ainda não aceita não autoriza o envio. Nesse caso responda em texto com
+ action=none e image_id=null. Use send_image somente com intenção de envio do catálogo.
+O texto da resposta e a ação precisam ser coerentes: não anexe uma foto enquanto ainda oferece
+ou pergunta se a pessoa deseja recebê-la.
 Catálogo desta empresa:
 """ + catalog
