@@ -142,6 +142,8 @@ Configurações → Comentários Instagram permite editar no banco as instruçõ
 
 A configuração inicial e a integração do site de homologação estão documentadas em [docs/estancia.md](docs/estancia.md). Identidade, instruções e conhecimento ficam no banco do tenant; os contratos do e-commerce são externos e independentes dos dados do Rincão.
 
+A página própria de pagamento da Lumi pode ser instalada na cópia local do site usando o [adaptador de checkout HML](integration-kit/site-checkout/README.md). Ele preserva o pedido do site, oferece Pix, crédito e débito simulados e exige gateway local; não habilita cobrança real nem publica o site.
+
 ## Desenvolvimento de integrações em separado
 
 Os ajustes de interpretação de imagens, recuperação de timeout do Codex e opções padronizadas de onboarding estão em [refinamentos de atendimento](docs/refinamentos-de-atendimento.md). Essa versão acrescenta uma tabela de configuração por objetivo e o campo `image_intent` ao schema de resposta. Faça backup consistente antes de atualizar e revise a compatibilidade dos providers; dados reais e listas de opções continuam no banco de cada tenant.
