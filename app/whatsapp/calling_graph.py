@@ -1,10 +1,13 @@
 """Direct Meta Calling contract; credentials stay server-side, writes never retry."""
 from datetime import datetime, timezone
+import logging
 import re
 
 import httpx
 
 from .config import access_token, required
+
+log = logging.getLogger(__name__)
 
 
 class GraphError(RuntimeError):
@@ -40,6 +43,10 @@ def _request(phone_id, token_env, endpoint, *, payload=None, params=None):
         error = data.get('error', {}) if isinstance(data, dict) else {}
         code = error.get('code') if isinstance(error, dict) else None
         code = code if type(code) is int else None
+        subcode = error.get('error_subcode') if isinstance(error, dict) else None
+        subcode = subcode if type(subcode) is int else None
+        log.warning('WhatsApp calling rejected: endpoint=%s action=%s http_status=%s meta_code=%s meta_subcode=%s',
+                    endpoint, payload.get('action') if writing else None, response.status_code, code, subcode)
         public = {138006:'permission_required', 190:'channel_unauthorized', 10:'channel_unauthorized',
                   200:'channel_unauthorized', 4:'rate_limited', 80007:'rate_limited',
                   131047:'message_window_closed', 131048:'rate_limited', 138037:'rate_limited'}.get(code)

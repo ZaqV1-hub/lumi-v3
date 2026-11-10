@@ -99,6 +99,18 @@ class CallingGraphTest(unittest.TestCase):
             self.graph.get_permission('../evil','TOKEN','15555550102')
         self.assertEqual(self.requests, [])
 
+    def test_rejection_logs_only_numeric_diagnostics(self):
+        for subcode, expected in [(2494000, '2494000'), ('private secret', 'None')]:
+            self.response = httpx.Response(400, json={'error':{'code':100, 'error_subcode':subcode,
+                'message':'synthetic-secret 15555550102 private SDP', 'error_data':{'details':'private'}}})
+            with self.assertLogs('app.whatsapp.calling_graph', level='WARNING') as captured:
+                with self.assertRaises(self.graph.GraphError):
+                    self.graph.connect('111','TOKEN','15555550102','private SDP','operation')
+            output = '\n'.join(captured.output)
+            self.assertIn('endpoint=calls action=connect http_status=400 meta_code=100 meta_subcode='+expected, output)
+            for private in ['synthetic-secret','15555550102','private','operation']:
+                self.assertNotIn(private, output)
+
     def test_malformed_error_code_stays_public_and_server_failure_uncertain(self):
         self.response = httpx.Response(503,json={'error':{'code':['private']}})
         with self.assertRaises(self.graph.GraphError) as error:
