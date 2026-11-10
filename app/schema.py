@@ -5,6 +5,6 @@ from . import usage_models, console_models, business_models, tenant_runtime
 from .whatsapp import models as whatsapp_models
 from .whatsapp import calling_models
 from .instagram import models as instagram_models, comment_models
-from . import role_instructions, tenant_ai
+from . import role_instructions, tenant_ai, reply_delivery
 
 metadata = Base.metadata

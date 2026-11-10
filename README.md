@@ -145,3 +145,5 @@ A configuração inicial e a integração do site de homologação estão docume
 ## Desenvolvimento de integrações em separado
 
 O núcleo de atendimento permanece em `app/` e `web/`. O projeto separado para desenvolvimento de ferramentas pode ser preparado com `python scripts/export-integrations.py --output PASTA_VAZIA`; use `--estancia-site CAMINHO` para incluir os adaptadores disponíveis do site. Ele contém apenas os serviços independentes, contratos, exemplo e simulador HTTP, sem núcleo, banco ou credenciais. O serviço de gestão Brevia ainda depende de modelos internos e não é exportado como independente. A versão em execução não é substituída automaticamente. Leia [arquitetura e colaboração](docs/arquitetura-e-colaboracao.md) e o [contrato de integrações](docs/contrato-de-integracoes.md). A liberação ao cliente acontece somente após a revisão e os testes de Isaque; esta etapa não configura aprovação de branch no GitHub.
+
+Respostas em partes e indicador de processamento por tenant: consulte [entrega de mensagens](docs/entrega-de-mensagens.md).

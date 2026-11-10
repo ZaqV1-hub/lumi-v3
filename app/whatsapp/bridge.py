@@ -1,3 +1,4 @@
+from ..reply_delivery import may_deliver
 import secrets
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session as OrmSession
@@ -15,7 +16,7 @@ def queue_messages(db, _):
     for message in list(db.new):
         if isinstance(message, Message) and message.sender != "cliente":
             if db.get(Chat, message.conversation_id):
-                db.add(Outbox(message_id=message.id))
+                db.add(Outbox(message_id=message.id, created_at=message.created_at))
 
 
 def bind_sender(db, channel, sender, name):
@@ -91,6 +92,7 @@ def _receive(phone_id, incoming, name, pool):
                 binary, mime = download_media(str(media.get("id", "")), token_env)
                 return validated_file(binary, mime, caption)
         receipt = receive_message(token, TextInput(content=content))
+        receipt["whatsapp_external_id"] = external_id
         if loader:
             receipt["attachment_loader"] = loader
     except Exception:
@@ -141,6 +143,9 @@ def deliver_one():
         item.status = "sending"
         mid = item.message_id
         message = db.get(Message, mid)
+        if not may_deliver(db, message):
+            item.status, item.error = "cancelled", "Resposta interrompida por mudança no atendimento."
+            return True
         chat = db.get(Chat, message.conversation_id)
         channel = db.get(Channel, chat.phone_number_id)
         text = message.content

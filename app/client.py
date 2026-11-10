@@ -17,6 +17,7 @@ from .models import (
     KnowledgeItem,
     FeatureCall,
 )
+from .reply_delivery import save_reply
 from .schemas import Start, TextInput
 from .conversations import conversation, messages, visitor
 from .features import request_handover, asks_for_human
@@ -200,6 +201,8 @@ def process_message(receipt):
     started = time.monotonic(); status = "failed"
     try:
         with generation_lock(contact_id, receipt["message_id"]), usage_scope(receipt["tenant_id"], receipt["conversation_id"], receipt["message_id"]):
+            from .whatsapp.typing import notify_processing
+            notify_processing(receipt)
             from .incoming import prepare_attachment
             prepare_attachment(receipt)
             with Session() as db:
@@ -381,17 +384,15 @@ def answer_message(token, data, cutoff, revision):
                 )
             if image_id and not image:
                 answer = "Não encontrei uma imagem disponível para esse pedido."
-            message = Message(
-                tenant_id=tid, conversation_id=cid, sender="lumi", content=answer
-            )
-            db.add(message)
-            db.flush()
+            response_messages = save_reply(db, tid, cid, answer, revision)
+            message = response_messages[-1]
             if called_tool:
                 feature = db.scalar(select(Feature).where(Feature.tenant_id == tid, Feature.name == called_tool))
                 if feature:
                     source_features.add(feature.id)
-            for feature_id in source_features:
-                db.add(ToolReplyAccess(message_id=message.id, feature_id=feature_id))
+            for response_message in response_messages:
+                for feature_id in source_features:
+                    db.add(ToolReplyAccess(message_id=response_message.id, feature_id=feature_id))
             if image:
                 db.add(MessageImage(message_id=message.id, image_id=image.id))
     return {"ok": True}
