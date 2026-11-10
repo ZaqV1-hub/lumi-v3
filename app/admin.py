@@ -11,6 +11,7 @@ from .whatsapp.models import Chat
 from .channels import channel_name
 from .onboarding import profile_state
 from .role_instructions import RoleInstruction
+from .whatsapp.calling import lock_conversation, has_active_call
 
 router = APIRouter()
 
@@ -73,7 +74,7 @@ def change_role(cid: str, data: ContactRole, user=Depends(current_user)):
 @router.post("/api/admin/conversations/{cid}/claim")
 def claim(cid: str, user=Depends(current_user)):
     with admission_lock, Session.begin() as db:
-        c = conversation(db, user.tenant_id, cid)
+        c = lock_conversation(db, user.tenant_id, cid)
         state = control(db, cid)
         if state.operator_id and state.operator_id != user.id:
             raise HTTPException(409, "Outro operador está atendendo esta conversa")
@@ -95,7 +96,9 @@ def claim(cid: str, user=Depends(current_user)):
 @router.post("/api/admin/conversations/{cid}/release")
 def release(cid: str, user=Depends(current_user)):
     with admission_lock, Session.begin() as db:
-        c = conversation(db, user.tenant_id, cid)
+        c = lock_conversation(db, user.tenant_id, cid)
+        if has_active_call(db, tenant_id=user.tenant_id, conversation_id=cid):
+            raise HTTPException(409, "Encerre a ligação e aguarde a confirmação antes de devolver à Lumi")
         state = control(db, cid)
         if state.operator_id and state.operator_id != user.id:
             raise HTTPException(

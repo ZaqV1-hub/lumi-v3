@@ -14,6 +14,8 @@ from ..media_models import ContactGate
 from .config import app_secret, load_config
 from .models import Channel, Inbox
 from .bridge import receive, deliver_one, record_delivery
+from .calling_webhook import is_permission_reply, process_permission, process_calls
+from .calling_models import CALLING_TABLES
 from .checkout_proxy import router as checkout_router
 from ..instagram.webhook import router as instagram_router
 from ..instagram.media import router as instagram_media_router
@@ -31,7 +33,7 @@ pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="whatsapp")
 async def lifespan(_):
     from ..db import Session
     active_engine = Session.kw["bind"]
-    Base.metadata.create_all(active_engine)
+    Base.metadata.create_all(active_engine, tables=[table for table in Base.metadata.sorted_tables if table not in CALLING_TABLES])
     with active_engine.begin() as db:
         db.execute(update(InstagramInbox).where(InstagramInbox.status.in_(["queued", "processing"])).values(status="interrupted", error="Servidor reiniciado durante processamento."))
         db.execute(update(InstagramOutbox).where(InstagramOutbox.status == "sending").values(status="failed", error="Envio interrompido. Confira a entrega antes de reenviar."))
@@ -112,9 +114,14 @@ async def incoming(request: Request):
             if not hmac.compare_digest(expected, request.headers.get("x-hub-signature-256", "")):
                 raise HTTPException(401, "Assinatura inválida")
         for change, phone_id in zip(changes, phones):
-            if change.get("field") != "messages" or phone_id not in channels:
+            if phone_id not in channels:
                 continue
             value = change.get("value", {})
+            if change.get("field") == "calls":
+                await asyncio.to_thread(process_calls, phone_id, value)
+                continue
+            if change.get("field") != "messages":
+                continue
             for delivery in value.get("statuses", []):
                 await asyncio.to_thread(record_delivery, phone_id, delivery)
             names = {
@@ -122,6 +129,9 @@ async def incoming(request: Request):
                 for c in value.get("contacts", [])
             }
             for message in value.get("messages", []):
+                if is_permission_reply(message):
+                    await asyncio.to_thread(process_permission, phone_id, message)
+                    continue
                 await asyncio.to_thread(
                     receive,
                     phone_id,

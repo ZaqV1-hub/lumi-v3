@@ -180,6 +180,7 @@ document.addEventListener("click", (e) => {
   if (!e.target.closest(".user-wrap")) closeUserMenu();
 });
 $("#logout").onclick = async () => {
+  disposeCalling();
   await api("/api/logout", "POST");
   location.reload();
 };
@@ -227,6 +228,7 @@ function page() {
   return (location.hash || "#dashboard").slice(1);
 }
 function route() {
+  mountCallingControls(null);
   let p = page();
   if(p==="consumo"&&me.role!=="brevia"){p="dashboard";history.replaceState(null,"",location.pathname+location.search+"#dashboard");}
   document.body.classList.remove("nav-open");
@@ -359,6 +361,7 @@ function drawConvoBody() {
         drawConvoBody();
       }),
   );
+  mountCallingControls(c);
   if (!c) return;
   $("#contactRole").onchange = async (e) => {
     await api("/api/admin/conversations/" + c.id + "/role", "PUT", {role: e.target.value});
@@ -406,7 +409,7 @@ function detail(c) {
     (c.blocked
       ? '<button class="btn btn-danger btn-sm" id="unblock">Desbloquear contato</button>'
       : "") +
-    '</div></div><div class="contact-role"><label for="contactRole">Papel do contato</label><select class="input" id="contactRole">' +
+    '</div></div>' + renderCallingControls(c) + '<div class="contact-role"><label for="contactRole">Papel do contato</label><select class="input" id="contactRole">' +
     contactRoles.filter(r=>r.role!=='administrador'||me.role==='brevia').map(r => '<option value="' + esc(r.role) + '"' + ((c.role || "cliente") === r.role ? ' selected' : '') + '>' + esc(r.label) + '</option>').join("") +
     '</select></div>' + renderProfile(c.profile) + '<div class="thread">' +
     c.messages

@@ -57,6 +57,7 @@ class PostgresImportTest(unittest.TestCase):
         self.source = Path(self.folder.name) / 'source.db'
         engine = create_engine('sqlite:///' + str(self.source))
         metadata.create_all(engine)
+        self.source_tables = set(inspect(engine).get_table_names())
         with engine.begin() as db:
             db.execute(metadata.tables['tenants'].insert(), dict(id='tenant-test', name='Empresa fictícia',
                        slug='empresa-teste', identity='Identidade de teste', personality='Tom neutro'))
@@ -79,7 +80,7 @@ class PostgresImportTest(unittest.TestCase):
         self.assertEqual(report['ignored_empty_tables'], ['legacy_empty'])
         self.assertEqual(report['source_sha256'], before)
         self.assertEqual(hashlib.sha256(self.source.read_bytes()).hexdigest(), before)
-        self.assertEqual(len(inspect(self.target).get_table_names()), 54)
+        self.assertEqual(set(inspect(self.target).get_table_names()), self.source_tables)
         with self.target.connect() as db:
             self.assertEqual(db.scalar(select(metadata.tables['image_assets'].c.data)), b'\x00\xffPNG\x80')
             self.assertIs(db.scalar(select(metadata.tables['tenant_runtime'].c.lumi_enabled)), False)

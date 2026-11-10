@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 from hashlib import sha256
 from pathlib import Path
 import os
@@ -38,6 +39,9 @@ from .instagram.comment_admin import router as comment_admin_router
 from .role_instructions import router as role_instructions_router
 from .access import console_user
 from .tenant_ai_routes import router as tenant_ai_router
+from .whatsapp.calling_admin import router as calling_router
+from .whatsapp.calling_reconcile import run_reconciler
+from .whatsapp.calling_models import CALLING_TABLES
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -46,18 +50,27 @@ ROOT = Path(__file__).resolve().parent.parent
 async def lifespan(_):
     load_config()
     active_engine = Session.kw["bind"]
-    Base.metadata.create_all(active_engine)
+    Base.metadata.create_all(active_engine, tables=[table for table in Base.metadata.sorted_tables if table not in CALLING_TABLES])
     if os.getenv("LUMI_SEED_DEMO", "true").lower() in {"true", "1"}:
         seed()
     with active_engine.begin() as connection:
         connection.execute(update(ContactGate).values(pending=0))
-    yield
+    calling_worker = asyncio.create_task(run_reconciler())
+    try:
+        yield
+    finally:
+        calling_worker.cancel()
+        try:
+            await calling_worker
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="Lumi", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(onboarding_router)
 app.include_router(admin_router)
+app.include_router(calling_router)
 app.include_router(client_router)
 app.include_router(image_router)
 app.include_router(checkout_router)
