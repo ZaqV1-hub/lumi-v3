@@ -14,7 +14,7 @@ const schemas = require(packet.build + '/modules/commerce/commerce.schemas');
 const pool = new Pool({host: env.POSTGRES_SISTEMA_HOST, port: Number(env.POSTGRES_SISTEMA_PORT),
   database: env.POSTGRES_SISTEMA_DB, user: env.POSTGRES_SISTEMA_USER,
   password: env.POSTGRES_SISTEMA_PASSWORD, max: 1, connectionTimeoutMillis: 5000,
-  statement_timeout: 8000});
+  statement_timeout: 8000, ...(packet.operation === 'quote' ? {options: '-c default_transaction_read_only=on'} : {})});
 (async () => {
   try {
     if (packet.payload.tenant_id !== env.RINCAO_COMMERCE_TENANT_ID || packet.payload.product_type === 'school_trip' || !Array.isArray(packet.payload.items) || packet.payload.items.some(item => item.ticketType === 'escola')) throw Error('invalid_scope');

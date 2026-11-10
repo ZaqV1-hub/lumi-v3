@@ -52,3 +52,18 @@ class Outbox(Base):
     external_id: Mapped[str] = mapped_column(String(240), default="")
     error: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ArchivedChat(Base):
+    """Vínculo anterior preservado, sem participar do recebimento ou envio."""
+    __tablename__ = "whatsapp_archived_chats"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36))
+    phone_number_id: Mapped[str] = mapped_column(String(80))
+    sender: Mapped[str] = mapped_column(String(40))
+    token: Mapped[str] = mapped_column(String(64))
+    previous_status: Mapped[str] = mapped_column(String(30))
+    archived_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    __table_args__ = (
+        ForeignKeyConstraint(["tenant_id", "id"], ["conversations.tenant_id", "conversations.id"]),
+    )

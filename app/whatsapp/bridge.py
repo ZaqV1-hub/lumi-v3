@@ -26,6 +26,9 @@ def bind_sender(db, channel, sender, name):
         )
     )
     if chat:
+        existing = db.get(Conversation, chat.id)
+        if not existing or existing.tenant_id != channel.tenant_id:
+            raise RuntimeError("Vínculo de conversa incompatível com o canal.")
         return chat.token
     contact = Contact(
         tenant_id=channel.tenant_id, name=name[:120] or sender, role="cliente"
@@ -147,7 +150,10 @@ def deliver_one():
             item.status, item.error = "cancelled", "Resposta interrompida por mudança no atendimento."
             return True
         chat = db.get(Chat, message.conversation_id)
-        channel = db.get(Channel, chat.phone_number_id)
+        channel = db.get(Channel, chat.phone_number_id) if chat else None
+        if not channel or message.tenant_id != channel.tenant_id:
+            item.status, item.error = "cancelled", "Canal transferido ou incompatível com esta conversa."
+            return True
         text = message.content
         author = db.get(MessageAuthor, mid)
         if author:
