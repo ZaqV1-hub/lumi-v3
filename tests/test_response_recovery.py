@@ -49,6 +49,80 @@ class ResponseRecoveryTest(unittest.TestCase):
             self.http.post('/api/client/'+self.token+'/messages',json={'content':'Olá'}).raise_for_status()
         self.assertIsNone(self.http.get('/api/client/'+self.token).json()['messages'][-1]['image_id'])
 
+    def test_unavailable_image_recovers_the_answer_without_sending_or_promising_an_image(self):
+        image = self.catalog()
+        with Session.begin() as db:
+            db.get(ImageAsset, image).enabled = False
+        first = {'reply': 'Segue a foto da piscina.', 'action': 'send_image',
+                 'image_id': image, 'image_intent': 'send_catalog'}
+        repaired = {'reply': 'O local tem piscina e academia.', 'action': 'none'}
+        with patch.object(client, 'reply', side_effect=[first, repaired]) as model:
+            self.http.post('/api/client/'+self.token+'/messages', json={'content': 'Tem piscina e academia?'}).raise_for_status()
+        items = self.http.get('/api/client/'+self.token).json()['messages']
+        self.assertEqual([m['sender'] for m in items], ['cliente', 'lumi'])
+        self.assertEqual(items[-1]['content'], repaired['reply'])
+        self.assertIsNone(items[-1]['image_id'])
+        self.assertNotIn('tools', model.call_args.kwargs)
+        with Session() as db:
+            audit = db.scalar(select(FeatureCall).where(FeatureCall.conversation_id == self.cid))
+            self.assertEqual(json.loads(audit.result), {'accepted': False, 'reason': 'unavailable'})
+
+    def test_invalid_image_repair_cannot_execute_a_second_business_operation(self):
+        first = {'reply': '', 'action': 'call_tool', 'tool_call': {'name': 'reserve', 'arguments': {}}}
+        unavailable = {'reply': 'Reserva confirmada. Segue a imagem.', 'action': 'send_image',
+                       'image_id': 'missing', 'image_intent': 'send_catalog'}
+        repaired = {'reply': 'Reserva confirmada para amanhã às 14h.', 'action': 'none'}
+        with patch.object(client, 'execute_tool', return_value={'reservation_id': 'confirmed'}) as execute, \
+                patch.object(client, 'reply', side_effect=[first, unavailable, repaired]) as model:
+            self.http.post('/api/client/'+self.token+'/messages', json={'content': 'Confirmo a visita'}).raise_for_status()
+            execute.assert_called_once()
+        self.assertIn('confirmed', model.call_args.args[0])
+        self.assertEqual(self.http.get('/api/client/'+self.token).json()['messages'][-1]['content'], repaired['reply'])
+
+    def test_image_repair_is_bounded_and_rejects_another_action(self):
+        first = {'reply': 'Segue a foto.', 'action': 'send_image', 'image_id': None, 'image_intent': 'send_catalog'}
+        with patch.object(client, 'reply', return_value=first) as model:
+            response = self.http.post('/api/client/'+self.token+'/messages', json={'content': 'Envie a foto'})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(model.call_count, 2)
+        items = self.http.get('/api/client/'+self.token).json()['messages']
+        self.assertEqual([m['sender'] for m in items], ['cliente'])
+        self.assertEqual(items[0]['response_status'], 'failed')
+
+    def test_handover_during_image_repair_discards_the_reply(self):
+        first = {'reply': 'Segue a foto.', 'action': 'send_image', 'image_id': 'missing', 'image_intent': 'send_catalog'}
+        def pause(*args, **kwargs):
+            with Session.begin() as db:
+                db.get(Conversation, self.cid).status = 'humano'
+                control(db, self.cid).revision += 1
+            return {'reply': 'Há piscina.', 'action': 'none'}
+        with patch.object(client, 'reply', side_effect=lambda *args, **kwargs: first if model.call_count == 1 else pause()) as model:
+            self.http.post('/api/client/'+self.token+'/messages', json={'content': 'Tem piscina?'}).raise_for_status()
+        items = self.http.get('/api/client/'+self.token).json()['messages']
+        self.assertEqual([m['sender'] for m in items], ['cliente'])
+
+    def test_foreign_image_is_rejected_before_text_recovery(self):
+        image = self.catalog()
+        foreign_token = self.other.post('/api/public/breve/start', json={'name': 'Outro'}).json()['token']
+        first = {'reply': 'Segue a foto.', 'action': 'send_image', 'image_id': image, 'image_intent': 'send_catalog'}
+        repaired = {'reply': 'Não tenho essa foto disponível.', 'action': 'none'}
+        with patch.object(client, 'reply', side_effect=[first, repaired]) as model:
+            self.other.post('/api/client/'+foreign_token+'/messages', json={'content': 'Quero uma foto'}).raise_for_status()
+        item = self.other.get('/api/client/'+foreign_token).json()['messages'][-1]
+        self.assertEqual(item['content'], repaired['reply'])
+        self.assertIsNone(item['image_id'])
+        self.assertNotIn(image, model.call_args.args[0])
+
+    def test_catalog_disable_before_persistence_never_sends_a_false_caption(self):
+        image = self.catalog()
+        def disable(db, *args, **kwargs):
+            db.get(ImageAsset, image).enabled = False
+        first = {'reply': 'Segue a foto.', 'action': 'send_image', 'image_id': image, 'image_intent': 'send_catalog'}
+        with patch.object(client, 'reply', return_value=first), patch.object(client, 'save_profile', side_effect=disable):
+            response = self.http.post('/api/client/'+self.token+'/messages', json={'content': 'Quero uma foto'})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual([m['sender'] for m in self.http.get('/api/client/'+self.token).json()['messages']], ['cliente'])
+
     def test_initial_timeout_retries_only_inference_and_saves_one_response(self):
         with patch.object(client,'reply',side_effect=[subprocess.TimeoutExpired('fake',35),{'reply':'Como posso ajudar?','action':'none'}]) as model,patch.object(client,'execute_tool') as execute:
             self.http.post('/api/client/'+self.token+'/messages',json={'content':'Quero comprar'}).raise_for_status()

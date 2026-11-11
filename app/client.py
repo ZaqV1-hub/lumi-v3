@@ -338,6 +338,31 @@ def answer_message(token, data, cutoff, revision):
             answer = reply(prompt, images=visual_data, tenant_id=tid) if visual_data else reply(prompt, tenant_id=tid)
             if isinstance(answer, dict) and answer.get("action") == "call_tool":
                 raise RuntimeError("Limite de ferramentas atingido")
+        if (isinstance(answer, dict) and answer.get("action") == "send_image" and not explicit_handover
+                and answer.get("image_intent") in {"send_catalog", "inspect_and_send_catalog"}):
+            with Session.begin() as db:
+                active = conversation(db, tid, cid)
+                if active.status != "lumi" or control(db, cid).revision != revision or not enabled(db, tid) or db.get(Contact, contact.id).role != role or not allows_role(db, tid, role):
+                    return {"ok": True}
+                image = db.scalar(select(ImageAsset).where(
+                    ImageAsset.id == answer.get("image_id"), ImageAsset.tenant_id == tid,
+                    ImageAsset.enabled == True))
+                if not image:
+                    db.add(FeatureCall(
+                        tenant_id=tid, conversation_id=cid, feature="send_image",
+                        message_id=scoped_message_id(tid, cid),
+                        parameters=json.dumps({"image_id": answer.get("image_id")}),
+                        result=json.dumps({"accepted": False, "reason": "unavailable"}), duration_ms="0"))
+            if not image:
+                # Repara somente a resposta: uma reserva/pagamento já executado não pode ser repetido.
+                prompt += ("\nA imagem selecionada não está disponível para envio. Responda ao pedido original "
+                           "em texto, usando o conhecimento e os resultados de ferramentas acima. "
+                           "Não descarte a resposta principal por falta da imagem nem afirme que a enviou. "
+                           "Explique a limitação somente se a imagem for necessária ao pedido. "
+                           "Use action=none, image_id=null e tool_call=null; não execute outra ação.")
+                answer = reply(prompt, images=visual_data, tenant_id=tid) if visual_data else reply(prompt, tenant_id=tid)
+                if not isinstance(answer, dict) or answer.get("action") != "none" or answer.get("image_id") or answer.get("tool_call"):
+                    raise RuntimeError("Resposta textual de recuperação inválida")
     except (RuntimeError, TimeoutError, subprocess.TimeoutExpired) as exc:
         raise HTTPException(
             503,
@@ -398,7 +423,7 @@ def answer_message(token, data, cutoff, revision):
                     )
                 )
             if image_id and image_allowed and not image:
-                answer = "Não encontrei uma imagem disponível para esse pedido."
+                raise HTTPException(503, "A imagem deixou de estar disponível. Sua mensagem foi salva; tente novamente em instantes.")
             response_messages = save_reply(db, tid, cid, answer, revision)
             message = response_messages[-1]
             if called_tool:
