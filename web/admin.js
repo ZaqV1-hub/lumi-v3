@@ -337,7 +337,7 @@ function renderConvos() {
       : "") +
     '<div class="filters"><div class="search">' +
     searchIco +
-    '<input class="input" id="cq" placeholder="Buscar por nome" value="' +
+    '<input class="input" id="cq" placeholder="Buscar por nome ou ID" aria-label="Buscar por nome ou ID" value="' +
     esc(ui.q) +
     '"></div></div><div id="cbody"></div></div>';
   $("#cq").oninput = (e) => {
@@ -347,10 +347,20 @@ function renderConvos() {
   drawConvoBody();
   if ($("#humanText")) $("#humanText").value = text;
 }
+function contactLabel(c) {
+  const name = c.name === "Nome não informado" && c.contact_id ? "" : '<b>' + esc(c.name) + '</b>';
+  const id = c.contact_id ? '<span class="contact-id" aria-label="ID do cliente ' + esc(c.contact_id) + '">#' + esc(c.contact_id) + '</span>' : '';
+  return '<span class="contact-label">' + name + id + '</span>';
+}
+
 function drawConvoBody() {
   const selectedStatus = { 'Lumi ativa': 'lumi', 'Aguardando atendimento': 'aguardando', 'Atendimento humano': 'humano' }[ui.tp];
+  const query = ui.q.trim().toLowerCase();
+  const idQuery = query.replace(/^#\s*/, '');
   const list = convos.filter((c) =>
-    c.name.toLowerCase().includes(ui.q.toLowerCase()) && (!selectedStatus || c.status === selectedStatus),
+    (!selectedStatus || c.status === selectedStatus) &&
+    (c.name.toLowerCase().includes(query) ||
+      (idQuery && [c.contact_id, c.id].some(id => id?.toLowerCase().includes(idQuery)))),
   );
   if (!list.some((c) => c.id === ui.conv)) ui.conv = list[0]?.id || "";
   const c = list.find((c) => c.id === ui.conv);
@@ -367,9 +377,9 @@ function drawConvoBody() {
           c.id +
           '" aria-current="' +
           (c.id === ui.conv) +
-          '"><span class="top"><span class="pill wa">' + (c.channel === 'whatsapp' ? 'WhatsApp' : c.channel === 'instagram' ? 'Instagram' : c.channel === 'instagram_comment' ? 'Comentário Instagram' : 'Simulador') + '</span></span><b>' +
-          esc(c.name) +
-          '</b><span class="last">' +
+          '"><span class="top"><span class="pill wa">' + (c.channel === 'whatsapp' ? 'WhatsApp' : c.channel === 'instagram' ? 'Instagram' : c.channel === 'instagram_comment' ? 'Comentário Instagram' : 'Simulador') + '</span></span>' +
+          contactLabel(c) +
+          '<span class="last">' +
           esc(c.messages.at(-1)?.content || "Conversa iniciada") +
           '</span><span class="tags"><span class="pill topic">' +
           esc(c.blocked ? "Bloqueado por spam" : statusLabel(c.status)) +
@@ -427,7 +437,7 @@ function drawConvoBody() {
 function detail(c) {
   return (
     '<div class="d-head"><button class="btn btn-ghost btn-sm back">Voltar aos atendimentos</button><div class="who"><div><h2>' +
-    esc(c.name) +
+    contactLabel(c) +
     '</h2><div class="ph">' +
     esc(statusLabel(c.status)) +
     '</div></div></div><div class="handover-actions">' +

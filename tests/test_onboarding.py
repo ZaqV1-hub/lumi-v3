@@ -123,9 +123,12 @@ class OnboardingTest(unittest.TestCase):
             return self.admin.get("/api/admin/conversations").json()[0]
 
         self.assertEqual(admin_row()["name"], "Nome não informado")
+        contact_id = admin_row()["contact_id"]
+        self.assertNotEqual(contact_id, self.cid)
         self.assertNotIn(phone, json.dumps(admin_row()))
         self.send("Adalberto", [{"objective_id": self.name, "value": "Adalberto", "evidence": "Adalberto"}])
         self.assertEqual(admin_row()["name"], "Adalberto")
+        self.assertEqual(admin_row()["contact_id"], contact_id)
         self.assertNotIn(phone, json.dumps(admin_row()))
 
     def test_evidence_and_tenant_authorization(self):

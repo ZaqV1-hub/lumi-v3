@@ -49,6 +49,7 @@ def conversations(user=Depends(current_user)):
             channel = channel_name(db, c.id)
             result.append({
                 "id": c.id,
+                "contact_id": c.contact_id,
                 "profile": profile,
                 "status": c.status,
                 "name": _conversation_name(contact.name, channel, profile),
