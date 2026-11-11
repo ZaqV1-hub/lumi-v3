@@ -81,7 +81,7 @@ class PostgresToolsTest(PostgresFixture, ToolsTest):
 
         def respond(request):
             requests.append(request)
-            value = {**answers[len(requests)-1], 'image_id': None,
+            value = {**answers[len(requests)-1], 'image_id': None, 'image_intent': 'none',
                      'profile_updates': [], 'asked_objective_id': None}
             return httpx.Response(200, json={'status': 'completed', 'output': [
                 {'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps(value)}]}],
