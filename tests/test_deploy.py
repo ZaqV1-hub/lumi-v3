@@ -201,7 +201,8 @@ class DeployReleaseTest(unittest.TestCase):
         git("config", "user.name", "Deploy Test")
         git("config", "user.email", "deploy@example.test")
         tracked = dict(REQUIRED)
-        tracked.update({"tests/not-runtime.py": b"test fixture", "app/.env": b"FICTITIOUS=fixture"})
+        tracked.update({"tests/not-runtime.py": b"test fixture", "app/.env": b"FICTITIOUS=fixture",
+                        "scripts/export-analytics.py": b"export entrypoint fixture"})
         for name, content in tracked.items():
             path = repo / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -216,6 +217,7 @@ class DeployReleaseTest(unittest.TestCase):
         self.assertEqual(result["sha256"], digest(output.read_bytes()))
         with ZipFile(output) as archive:
             self.assertEqual(archive.read("app/main.py"), REQUIRED["app/main.py"])
+            self.assertEqual(archive.read("scripts/export-analytics.py"), b"export entrypoint fixture")
             for name in ["app/untracked.py", "app/.env", "tests/not-runtime.py"]:
                 self.assertNotIn(name, archive.namelist())
             metadata = json.loads(archive.read("deployment.json"))

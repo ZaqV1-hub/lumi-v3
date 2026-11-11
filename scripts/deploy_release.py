@@ -19,6 +19,7 @@ BRANCHES = {"develop": "HML", "main": "PROD"}
 REQUIRED = {"app/main.py", "app/whatsapp/webhook.py", "web/console.html",
             "requirements.txt", "requirements-vm.lock"}
 EXTRA = {"requirements.txt", "requirements-vm.lock", "scripts/deploy_release.py",
+         "scripts/export-analytics.py",
          "scripts/windows/deploy-release.ps1", "docs/privacy-policy.html",
          "docs/privacy-policy-draft.html"}
 
