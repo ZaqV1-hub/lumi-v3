@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func
 from .access import current_user
@@ -16,6 +17,18 @@ from .whatsapp.calling import lock_conversation, has_active_call
 router = APIRouter()
 
 
+def _conversation_name(name, channel, profile):
+    if channel != "whatsapp":
+        return name
+    name_fields = [field for field in profile["fields"] if field["updates_name"]]
+    if name_fields:
+        name = next((field["value"] for field in name_fields if field["value"]), "")
+    name = name.strip()
+    if not name or re.fullmatch(r"[+\d().\s-]+", name):
+        return "Nome não informado"
+    return name
+
+
 @router.get("/api/admin/conversations")
 def conversations(user=Depends(current_user)):
     with Session() as db:
@@ -29,23 +42,26 @@ def conversations(user=Depends(current_user)):
             .order_by(func.coalesce(activity.c.latest, Conversation.created_at).desc(),
                       Conversation.created_at.desc(), Conversation.id.desc())
         )
-        return [
-            {
+        result = []
+        for c in rows:
+            contact = db.get(Contact, c.contact_id)
+            profile = profile_state(db, user.tenant_id, c.contact_id)
+            channel = channel_name(db, c.id)
+            result.append({
                 "id": c.id,
-                "profile": profile_state(db, user.tenant_id, c.contact_id),
+                "profile": profile,
                 "status": c.status,
-                "name": db.get(Contact, c.contact_id).name,
-                "role": db.get(Contact, c.contact_id).role,
-                "channel": channel_name(db, c.id),
+                "name": _conversation_name(contact.name, channel, profile),
+                "role": contact.role,
+                "channel": channel,
                 "created_at": timestamp(c.created_at),
                 "blocked": bool(
                     db.get(ContactGate, c.contact_id)
                     and db.get(ContactGate, c.contact_id).blocked
                 ),
                 "messages": messages(db, user.tenant_id, c.id),
-            }
-            for c in rows
-        ]
+            })
+        return result
 
 
 @router.get("/api/admin/conversations/{cid}")

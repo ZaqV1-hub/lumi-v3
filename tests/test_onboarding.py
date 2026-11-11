@@ -107,6 +107,27 @@ class OnboardingTest(unittest.TestCase):
         self.assertNotIn(self.name, state["askable"])
         self.assertFalse(state["completed"])
 
+    def test_admin_whatsapp_uses_confirmed_onboarding_name_instead_of_number(self):
+        from app.models import Contact, Conversation
+        from app.whatsapp.models import Channel, Chat
+
+        phone = "5511000000000"
+        with self.Session.begin() as db:
+            conversation = db.get(Conversation, self.cid)
+            db.get(Contact, conversation.contact_id).name = phone
+            db.add(Channel(phone_number_id="demo", tenant_id=conversation.tenant_id))
+            db.flush()
+            db.add(Chat(id=self.cid, phone_number_id="demo", sender=phone, token="demo"))
+
+        def admin_row():
+            return self.admin.get("/api/admin/conversations").json()[0]
+
+        self.assertEqual(admin_row()["name"], "Nome não informado")
+        self.assertNotIn(phone, json.dumps(admin_row()))
+        self.send("Adalberto", [{"objective_id": self.name, "value": "Adalberto", "evidence": "Adalberto"}])
+        self.assertEqual(admin_row()["name"], "Adalberto")
+        self.assertNotIn(phone, json.dumps(admin_row()))
+
     def test_evidence_and_tenant_authorization(self):
         foreign = self.other.post("/api/admin/onboarding", json={"title": "Segredo",
             "description": "Objetivo da outra empresa"})
