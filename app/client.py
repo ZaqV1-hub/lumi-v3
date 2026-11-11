@@ -434,7 +434,7 @@ def answer_message(token, data, cutoff, revision):
                 )
             if image_id and image_allowed and not image:
                 raise HTTPException(503, "A imagem deixou de estar disponível. Sua mensagem foi salva; tente novamente em instantes.")
-            response_messages = save_reply(db, tid, cid, answer, revision)
+            response_messages = save_reply(db, tid, cid, answer, revision, has_image=image is not None)
             message = response_messages[-1]
             if called_tool:
                 feature = db.scalar(select(Feature).where(Feature.tenant_id == tid, Feature.name == called_tool))

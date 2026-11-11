@@ -49,9 +49,11 @@ def split_reply(text, limit):
     return parts or [text]
 
 
-def save_reply(db, tid, cid, text, revision):
+def save_reply(db, tid, cid, text, revision, *, has_image=False):
     setting = db.get(ReplyDelivery, tid)
-    parts = split_reply(text, max(200, min(setting.max_chars, 1500))) if setting else [text]
+    parts = [text]
+    if setting and not (has_image and len(text) <= 1024):
+        parts = split_reply(text, max(200, min(setting.max_chars, 1500)))
     timestamp = now()
     rows = []
     for index, part in enumerate(parts):

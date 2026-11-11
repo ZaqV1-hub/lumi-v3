@@ -49,6 +49,25 @@ class ResponseRecoveryTest(unittest.TestCase):
             self.http.post('/api/client/'+self.token+'/messages',json={'content':'Olá'}).raise_for_status()
         self.assertIsNone(self.http.get('/api/client/'+self.token).json()['messages'][-1]['image_id'])
 
+    def test_catalog_image_and_caption_stay_in_the_same_message(self):
+        from app.reply_delivery import ReplyDelivery
+
+        image = self.catalog()
+        with Session.begin() as db:
+            tenant_id = db.get(Conversation, self.cid).tenant_id
+            db.add(ReplyDelivery(tenant_id=tenant_id, max_chars=450))
+        caption = ("O projeto fica perto da estação. " * 15).strip()
+        answer = {'reply': caption, 'action': 'send_image', 'image_id': image,
+                  'image_intent': 'send_catalog'}
+        with patch.object(client, 'reply', return_value=answer):
+            response = self.http.post('/api/client/'+self.token+'/messages', json={'content': 'Mostre a fachada'})
+            response.raise_for_status()
+        replies = [item for item in self.http.get('/api/client/'+self.token).json()['messages']
+                   if item['sender'] == 'lumi']
+        self.assertEqual(len(replies), 1)
+        self.assertEqual(replies[0]['content'], caption)
+        self.assertEqual(replies[0]['image_id'], image)
+
     def test_catalog_attachment_is_visible_to_model_only_in_its_own_conversation(self):
         image = self.catalog()
         send = {'reply': 'Aqui está a planta.', 'action': 'send_image',
