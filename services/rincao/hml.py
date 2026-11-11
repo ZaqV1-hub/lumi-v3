@@ -4,6 +4,9 @@ from fastapi import Header, HTTPException
 from pydantic import BaseModel
 from .api import app
 from .config import required
+from ..web_tools.api import app as public_tools
+
+app.mount("/public-tools", public_tools)
 
 
 class Handover(BaseModel):

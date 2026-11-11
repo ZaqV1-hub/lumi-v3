@@ -35,3 +35,10 @@ class CommerceTransportTest(unittest.TestCase):
             self.assertEqual(http.post("/handover/execute",json=payload,headers={"Authorization":"Bearer fake-handover"}).status_code,403)
             payload["tenant_id"]="a"
             self.assertEqual(http.post("/handover/execute",json=payload,headers={"Authorization":"Bearer fake-handover"}).json(),{"accepted":True})
+
+    def test_mounted_search_still_requires_tenant_credential(self):
+        from fastapi.testclient import TestClient
+        from services.rincao.hml import app
+        call={"tenant_id":"other","conversation_id":"fake","role":"cliente","arguments":{"query":"Parque Ibirapuera"}}
+        with patch.dict(os.environ,{"WEB_TOOLS_BINDINGS":"{}"}):
+            self.assertEqual(TestClient(app).post("/public-tools/search",json=call).status_code,403)

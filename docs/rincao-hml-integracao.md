@@ -11,3 +11,5 @@ O componente de ingressos tem instalação e liberação próprias. Depois de al
 Ambiente de site HML não implica sandbox da Cielo: a tela deve refletir o gateway efetivamente configurado. Validação de infraestrutura não efetua cobrança, aprovação manual nem emissão de ingresso. O pagamento real depende de ação explícita do comprador e confirmação do gateway.
 
 A entrada services.rincao.hml:app inclui confirmação de handover no formato legado, com credencial própria e verificação de tenant. A pausa da IA, fila humana e avisos continuam sendo responsabilidade do núcleo.
+
+A entrada também monta o serviço público existente em /public-tools, mantendo seus próprios contratos, limites e autorização por tenant. A consulta de faturamento usa o endpoint existente /faturamento, com papel gestor validado no servidor e consulta SQL fixa em transação sem gravação. Credenciais de buffet e buscador são provisionadas no ambiente privado do componente. Ativar a integração não concede o papel gestor a contatos.
