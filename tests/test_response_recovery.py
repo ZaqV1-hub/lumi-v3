@@ -49,6 +49,21 @@ class ResponseRecoveryTest(unittest.TestCase):
             self.http.post('/api/client/'+self.token+'/messages',json={'content':'Olá'}).raise_for_status()
         self.assertIsNone(self.http.get('/api/client/'+self.token).json()['messages'][-1]['image_id'])
 
+    def test_catalog_attachment_is_visible_to_model_only_in_its_own_conversation(self):
+        image = self.catalog()
+        send = {'reply': 'Aqui está a planta.', 'action': 'send_image',
+                'image_id': image, 'image_intent': 'send_catalog'}
+        with patch.object(client, 'reply', return_value=send):
+            self.http.post('/api/client/'+self.token+'/messages',
+                           json={'content': 'Mostre a planta'}).raise_for_status()
+        other_token = self.http.post('/api/public/rincao/start', json={'name': 'Outro'}).json()['token']
+        for token, should_see_history in [(self.token, True), (other_token, False)]:
+            with patch.object(client, 'reply', return_value={'reply': 'Entendi.', 'action': 'none'}) as model:
+                self.http.post('/api/client/'+token+'/messages',
+                               json={'content': 'Gostei dessa planta'}).raise_for_status()
+            marker = 'Imagens do catálogo já anexadas pela Lumi no histórico acima: ' + image
+            self.assertEqual(marker in model.call_args.args[0], should_see_history)
+
     def test_unavailable_image_recovers_the_answer_without_sending_or_promising_an_image(self):
         image = self.catalog()
         with Session.begin() as db:

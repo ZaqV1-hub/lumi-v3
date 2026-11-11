@@ -296,6 +296,16 @@ def answer_message(token, data, cutoff, revision):
             )
         )
         prompt += image_context(images)
+        if images:
+            sent_images = list(db.scalars(select(MessageImage.image_id).where(
+                MessageImage.message_id.in_([item.id for item in history if item.sender == "lumi"]),
+                MessageImage.image_id.in_([image.id for image in images]),
+            ).distinct()))
+            if sent_images:
+                prompt += ("\nImagens do catálogo já anexadas pela Lumi no histórico acima: "
+                           + ", ".join(sorted(sent_images))
+                           + ". Se a pessoa comenta ou escolhe uma imagem já enviada, continue em texto. "
+                           "Reenvie a mesma imagem somente se a pessoa pedir para vê-la novamente.")
         tools = available_tools(db, tid, role)
         recent_ids = [message.id for message in history[-8:]]
         found = {item.message_id: item for item in db.scalars(select(IncomingAttachment).where(IncomingAttachment.tenant_id==tid,

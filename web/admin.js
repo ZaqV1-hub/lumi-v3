@@ -7,6 +7,7 @@ let me,
   saved = {},
   draft = {},
   settingsLoaded = false,
+  settingsRequest = null,
   lastRows = "",
   refreshing = false;
 const ui = {
@@ -128,7 +129,6 @@ async function loadImages() {
   }));
 }
 async function loadSettings() {
-  contactRoles = await api('/api/admin/role-instructions');
   const s = await api("/api/admin/settings");
   saved = {
     tom: s.tone,
@@ -143,6 +143,36 @@ async function loadSettings() {
   draft = { ...saved };
   await Promise.all([loadKnowledge(), loadImages()]);
   settingsLoaded = true;
+}
+function showSettings() {
+  if (settingsLoaded) {
+    renderCfg();
+    return;
+  }
+  const content = $("#content");
+  content.innerHTML = '<div class="cfg"><p role="status">Carregando configurações…</p></div>';
+  if (!settingsRequest) {
+    settingsRequest = loadSettings().finally(() => { settingsRequest = null; });
+  }
+  settingsRequest.then(() => {
+    if (page() === "configuracoes") renderCfg();
+  }).catch(() => {
+    if (page() !== "configuracoes") return;
+    content.innerHTML = '<div class="cfg"><p role="alert">Não foi possível carregar as configurações.</p><button class="btn btn-ghost" id="retrySettings">Tentar novamente</button></div>';
+    $("#retrySettings").onclick = showSettings;
+  });
+}
+async function loadConversationRoles() {
+  const results = await Promise.allSettled([
+    api('/api/admin/simulations/roles'),
+    api('/api/admin/role-instructions'),
+  ]);
+  if (results[0].status === "fulfilled") simulationRoles = results[0].value;
+  if (results[1].status === "fulfilled") contactRoles = results[1].value;
+  if (page() === "conversas") {
+    lastRows = "";
+    refresh();
+  }
 }
 $("#pwToggle").onclick = () => {
   const p = $("#pw");
@@ -208,9 +238,7 @@ async function boot() {
     return;
   }
   $("#login").hidden = true;
-  simulationRoles = await api('/api/admin/simulations/roles');
   $("#usageNav").hidden=me.role!=="brevia";
-  $("#app").hidden = true;
   $(".tenant b").textContent = me.tenant;
   $(".tenant .status").textContent=me.lumi_enabled?"Lumi ativa":"Lumi desativada";
   $(".tenant .status").classList.toggle("off",!me.lumi_enabled);
@@ -219,10 +247,10 @@ async function boot() {
   $("#userBtn .av").textContent = me.name[0];
   $(".um-id b").textContent = me.name + " · " + me.tenant;
   $(".um-id span").textContent = "";
-  await loadSettings();
-  await refresh(false);
   route();
   $("#app").hidden = false;
+  void loadConversationRoles();
+  void refresh();
 }
 function page() {
   return (location.hash || "#dashboard").slice(1);
@@ -252,7 +280,7 @@ function route() {
       ? "Atendimentos e intervenção humana"
       : "Administração da assistente");
   if (p === "consumo") drawUsage();
-  else if (p === "configuracoes") renderCfg();
+  else if (p === "configuracoes") showSettings();
   else if (p === "conversas") renderConvos();
   else renderDash();
 }
