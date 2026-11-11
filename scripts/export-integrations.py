@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SERVICES = ("web_tools", "rincao", "estancia")
+SERVICES = ("web_tools", "rincao", "estancia", "scheduling")
 SITE_FILES = (
     "src/lib/lumi-access.ts", "src/lib/lumi-access.test.ts", "src/lib/lumi-catalog.ts",
     "src/lib/lumi-commerce.ts", "src/app/api/lumi/[action]/route.ts",

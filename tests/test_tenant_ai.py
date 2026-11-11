@@ -28,7 +28,7 @@ KEY_B = "sk-test-tenant-b-not-a-real-key"
 
 def response():
     answer = {"reply": "Resposta fictícia.", "action": "none", "tool_call": None,
-              "image_id": None, "profile_updates": [], "asked_objective_id": None}
+              "image_id": None, "image_intent": "none", "profile_updates": [], "asked_objective_id": None}
     return {"status": "completed", "output": [{"type": "message", "content": [
         {"type": "output_text", "text": json.dumps(answer)}]}]}
 

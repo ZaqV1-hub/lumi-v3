@@ -21,7 +21,7 @@ def roles(db, user):
         if not allows_role(db, user.tenant_id, row.role):
             continue
         grant = db.get(ReportGrant, (user.tenant_id, row.role))
-        if row.role == "cliente" or (grant and grant.enabled and
+        if row.role in ("cliente", "corretor") or (grant and grant.enabled and
                 (grant.scope == "own" or (grant.scope == "all" and user.console_role == "brevia"))):
             result.append({"role": row.role, "label": row.label})
     return result

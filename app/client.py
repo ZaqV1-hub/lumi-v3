@@ -268,6 +268,9 @@ def answer_message(token, data, cutoff, revision):
                 select(Feature).where(Feature.tenant_id == tid, Feature.enabled == True)
             )
         )
+        for item in history:
+            run = db.get(ResponseRun, item.id)
+            item.response_failed = item.sender == "cliente" and bool(run and run.status == "failed")
         onboarding = profile_state(db, tid, contact.id)
         name_confirmed = not onboarding["enabled"] or any(
             f["updates_name"] and f["value"] for f in onboarding["fields"])
@@ -312,7 +315,16 @@ def answer_message(token, data, cutoff, revision):
     try:
         kwargs = {"images": visual_data} if visual_data else {}
         if tools: kwargs["tools"] = tools
-        answer = reply(prompt, tenant_id=tid, **kwargs)
+        try:
+            answer = reply(prompt, tenant_id=tid, **kwargs)
+        except subprocess.TimeoutExpired:
+            # Uma repetição de inferência, antes de executar qualquer ferramenta de negócio.
+            # Não repete pedidos, cobranças ou envio de mensagens.
+            with Session() as retry_db:
+                active = conversation(retry_db, tid, cid)
+                if active.status != "lumi" or control(retry_db, cid).revision != revision or not enabled(retry_db, tid) or retry_db.get(Contact, contact.id).role != role or not allows_role(retry_db, tid, role):
+                    return {"ok": True}
+            answer = reply(prompt, tenant_id=tid, **kwargs)
         if isinstance(answer, dict) and answer.get("action") == "call_tool" and not explicit_handover:
             call = answer.get("tool_call")
             if not isinstance(call, dict):
@@ -360,6 +372,7 @@ def answer_message(token, data, cutoff, revision):
         ).rowcount
         if allowed:
             save_profile(db, tid, contact_id=contact.id, answer=profile_answer, incoming=data.content)
+            image_allowed = profile_answer.get("image_intent") in {"send_catalog", "inspect_and_send_catalog"}
             image = (
                 db.scalar(
                     select(ImageAsset).where(
@@ -368,7 +381,7 @@ def answer_message(token, data, cutoff, revision):
                         ImageAsset.enabled == True,
                     )
                 )
-                if image_id
+                if image_id and image_allowed
                 else None
             )
             if image_id:
@@ -378,11 +391,11 @@ def answer_message(token, data, cutoff, revision):
                         conversation_id=cid,
                         feature="send_image",
                         parameters=json.dumps({"image_id": image_id}),
-                        result=json.dumps({"accepted": bool(image)}),
+                        result=json.dumps({"accepted": bool(image), "reason": "catalog_request_not_confirmed" if not image_allowed else "selected" if image else "unavailable"}),
                         duration_ms="0",
                     )
                 )
-            if image_id and not image:
+            if image_id and image_allowed and not image:
                 answer = "Não encontrei uma imagem disponível para esse pedido."
             response_messages = save_reply(db, tid, cid, answer, revision)
             message = response_messages[-1]

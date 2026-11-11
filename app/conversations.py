@@ -6,6 +6,7 @@ from .media_models import MessageImage
 from .whatsapp.models import Outbox
 from .channels import delivery
 from .incoming_models import IncomingAttachment
+from .usage_models import ResponseRun
 
 
 def timestamp(value):
@@ -33,6 +34,7 @@ def messages(db, tenant_id, cid):
         {
             "id": m.id,
             "sender": m.sender,
+            "response_status": db.get(ResponseRun, m.id).status if db.get(ResponseRun, m.id) else None,
             "delivery_error": delivery(db, m.id).error
             if delivery(db, m.id)
             else "",

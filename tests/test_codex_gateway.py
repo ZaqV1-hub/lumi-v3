@@ -15,7 +15,7 @@ JPEG = b"\xff\xd8\xfftest-image\xff\xd9"
 
 
 def answer(**changes):
-    return {"reply": "Resposta.", "action": "none", "image_id": None,
+    return {"reply": "Resposta.", "action": "none", "image_id": None, "image_intent": "none",
             "profile_updates": [], "asked_objective_id": None, "tool_call": None, **changes}
 
 
