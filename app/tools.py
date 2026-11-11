@@ -18,6 +18,7 @@ from .media_models import ConversationControl
 from .tool_models import ToolContract, ToolReplyAccess, ToolContext
 from .tenant_runtime import enabled
 from .tool_errors import validation_error
+from .analytics_models import scoped_message_id
 
 
 def available_tools(db, tenant_id, role):
@@ -143,6 +144,7 @@ def execute_tool(tenant_id, conversation_id, call, revision, cutoff=None):
             logged_arguments["cpf"] = "***" + str(logged_arguments["cpf"])[-4:]
         with Session.begin() as db:
             db.add(FeatureCall(tenant_id=tenant_id, conversation_id=conversation_id,
+                message_id=scoped_message_id(tenant_id, conversation_id),
                 feature=name, parameters=json.dumps(logged_arguments, ensure_ascii=False),
                 result=json.dumps(result, ensure_ascii=False),
                 duration_ms=str(round((time.monotonic() - started) * 1000))))

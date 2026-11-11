@@ -24,6 +24,7 @@ from test_message_order import MessageOrderTest
 from test_tools import ToolsTest
 from test_usage_report import UsageReportTest
 from test_tenant_ai import TenantAITest
+from test_analytics_export import AnalyticsExportTests
 
 
 class PostgresFixture:
@@ -114,11 +115,12 @@ class PostgresToolsTest(PostgresFixture, ToolsTest):
 
 PostgresUsageReportTest = postgres_case(UsageReportTest)
 PostgresTenantAITest = postgres_case(TenantAITest)
+PostgresAnalyticsExportTests = postgres_case(AnalyticsExportTests)
 
 
 def load_tests(loader, tests, pattern):
     # Não descobrir novamente as classes SQLite importadas acima.
     return unittest.TestSuite(loader.loadTestsFromTestCase(cls) for cls in (
         PostgresFlowTest, PostgresConsoleTest, PostgresMessageOrderTest,
-        PostgresToolsTest, PostgresUsageReportTest, PostgresTenantAITest,
+        PostgresToolsTest, PostgresUsageReportTest, PostgresTenantAITest, PostgresAnalyticsExportTests,
     ))

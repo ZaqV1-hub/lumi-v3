@@ -144,3 +144,5 @@ class FeatureCall(Base):
     parameters: Mapped[str] = mapped_column(Text)
     result: Mapped[str] = mapped_column(Text)
     duration_ms: Mapped[str] = mapped_column(String(30))
+    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=now, nullable=True)
+    message_id: Mapped[str | None] = mapped_column(String(36), nullable=True)

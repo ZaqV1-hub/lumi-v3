@@ -30,6 +30,7 @@ from .tools import available_tools, tool_context, execute_tool, history_allowed,
 from .tool_models import ToolReplyAccess, ToolContract
 from .incoming_models import IncomingAttachment
 from .usage import usage_scope
+from .analytics_models import scoped_message_id
 from .usage_models import ResponseRun
 from .tenant_runtime import allows_role, enabled, listed
 from .role_instructions import role_prompt
@@ -390,6 +391,7 @@ def answer_message(token, data, cutoff, revision):
                         tenant_id=tid,
                         conversation_id=cid,
                         feature="send_image",
+                        message_id=scoped_message_id(tid, cid),
                         parameters=json.dumps({"image_id": image_id}),
                         result=json.dumps({"accepted": bool(image), "reason": "catalog_request_not_confirmed" if not image_allowed else "selected" if image else "unavailable"}),
                         duration_ms="0",

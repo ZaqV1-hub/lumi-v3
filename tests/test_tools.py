@@ -99,6 +99,20 @@ class ToolsTest(unittest.TestCase):
             memory = tools.conversation_tool_context(db, self.tid, self.cid, "cliente")
             self.assertEqual(memory[0]["result"]["products"][0]["product_id"], "p1")
 
+    def test_visit_slot_remains_in_prompt_after_confirmation_and_name(self):
+        from app import client, tools
+        available = {"ok": True, "environment": "TESTE", "context_reference": "horarios_TESTE_2099-01-15",
+                     "slots": [{"slot_id": "slot-confirmed-choice", "start": "2099-01-15T14:00:00-03:00"}]}
+        call = {"name": "consultar_agenda", "arguments": {"start_date": None, "end_date": None}}
+        with patch.object(tools.urllib.request, "urlopen", return_value=io.BytesIO(json.dumps(available).encode())):
+            tools.execute_tool(self.tid, self.cid, call, 0)
+        with patch.object(client, "reply", return_value={"reply": "Qual nome devo informar?", "action": "none"}) as model:
+            self.send("Confirmo esse horário").raise_for_status()
+            self.assertIn('"slot_id": "slot-confirmed-choice"', model.call_args.args[0])
+        with patch.object(client, "reply", return_value={"reply": "Nome recebido.", "action": "none"}) as model:
+            self.send("Pessoa fictícia").raise_for_status()
+            self.assertIn('"slot_id": "slot-confirmed-choice"', model.call_args.args[0])
+
     def test_breve_cannot_discover_or_execute_rincao_commerce_tools(self):
         from app import tools
         from app.models import Tenant
