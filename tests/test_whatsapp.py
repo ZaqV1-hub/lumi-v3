@@ -128,7 +128,10 @@ class WhatsAppTest(unittest.TestCase):
                             200,
                         )
                     self.assertEqual(len(queued.jobs), 1)
-                    with patch.object(client, "reply", return_value="Olá, da Breve!"):
+                    with patch.object(
+                        client, "reply",
+                        return_value="Visita às **14h**. *Confirmada*. Exemplo: `**texto**`.",
+                    ):
                         queued.jobs[0]()
                 with Session() as db:
                     self.assertEqual(
@@ -154,7 +157,7 @@ class WhatsAppTest(unittest.TestCase):
                             "111",
                             "WHATSAPP_ACCESS_TOKEN",
                             "5511999999999",
-                            "Olá, da Breve!",
+                            "Visita às *14h*. *Confirmada*. Exemplo: `**texto**`.",
                         ),
                     )
                 with Session.begin() as db:

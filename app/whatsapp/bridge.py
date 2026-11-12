@@ -1,4 +1,5 @@
 from ..reply_delivery import may_deliver
+import re
 import secrets
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session as OrmSession
@@ -136,6 +137,15 @@ def finish_inbox(external_id, status, error=""):
         row.status, row.error = status, error
 
 
+def whatsapp_text(text):
+    return re.sub(
+        r"(```[\s\S]*?```|`[^`\n]*`|https?://\S+)|"
+        r"(?<![\\*])\*\*(?=\S)([^*\r\n]+?)(?<![\\\s])\*\*(?!\*)",
+        lambda match: match[1] or f"*{match[2]}*",
+        text,
+    )
+
+
 def deliver_one():
     with admission_lock, Session.begin() as db:
         item = db.scalar(
@@ -157,7 +167,7 @@ def deliver_one():
         if not channel or message.tenant_id != channel.tenant_id:
             item.status, item.error = "cancelled", "Canal transferido ou incompatível com esta conversa."
             return True
-        text = message.content
+        text = whatsapp_text(message.content) if message.sender == "lumi" else message.content
         author = db.get(MessageAuthor, mid)
         if author:
             text = f"*{author.name}*\n{text}"
