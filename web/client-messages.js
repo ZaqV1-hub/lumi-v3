@@ -27,6 +27,16 @@ function messageNode(message) {
   if (message.attachment_kind === 'audio' && message.attachment_url) {
     const audio = document.createElement('audio'); audio.controls = true; audio.preload = 'metadata'; audio.src = message.attachment_url; bubble.append(audio);
   }
+  if (message.attachment_kind === 'video' && message.attachment_url) {
+    const video = document.createElement('video');
+    video.controls = true; video.preload = 'metadata'; video.src = message.attachment_url; video.style.maxWidth = '100%';
+    bubble.append(video);
+  }
+  if (message.attachment_kind === 'document' && message.attachment_url) {
+    const link = document.createElement('a');
+    link.href = message.attachment_url; link.textContent = message.attachment_name || 'Baixar PDF';
+    bubble.append(link);
+  }
   if (message.content && !['[Imagem enviada]', '[Áudio enviado]'].includes(message.content)) {
     const content = document.createElement('div'); content.className = 'message-text' + (imageUrl ? ' cap' : '');
     appendMessageText(content, message.content); bubble.append(content);

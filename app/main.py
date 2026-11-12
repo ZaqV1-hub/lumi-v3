@@ -26,6 +26,7 @@ from .whatsapp.checkout_proxy import router as checkout_router
 from .whatsapp.admin import router as whatsapp_admin_router
 from .whatsapp.registration import router as whatsapp_registration_router
 from .incoming import router as incoming_router
+from .operator_media import router as operator_media_router
 from .usage_models import ModelCall, ResponseRun
 from .usage_routes import router as usage_router
 from .console_access import router as console_access_router
@@ -78,6 +79,7 @@ app.include_router(whatsapp_admin_router)
 app.include_router(whatsapp_registration_router)
 app.include_router(instagram_admin_router)
 app.include_router(incoming_router)
+app.include_router(operator_media_router)
 app.include_router(usage_router)
 app.include_router(tenant_ai_router)
 app.include_router(console_access_router)

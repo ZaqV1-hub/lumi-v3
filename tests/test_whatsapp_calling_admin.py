@@ -249,6 +249,56 @@ class CallingAdminTest(unittest.TestCase):
         self.assertEqual(self.other.get(path + '/' + self.cid).status_code, 404)
         self.assertNotIn(f'call:{call_id}', [item['id'] for item in self.http.get('/api/client/synthetic-visitor').json()['messages']])
 
+    def test_handover_image_with_caption_uses_operator_name_and_existing_outbox(self):
+        import io
+        from uuid import uuid4
+        from PIL import Image
+        from app.whatsapp.bridge import deliver_one
+
+        path = '/api/admin/conversations/' + self.cid
+        payload = io.BytesIO()
+        Image.new('RGB', (2, 2), 'blue').save(payload, format='PNG')
+        headers = {'X-Media-Request':str(uuid4()), 'X-Media-Kind':'image', 'X-Lumi-Caption':'Uma%20legenda'}
+        self.assertEqual(self.http.post(path + '/operator-attachment', content=payload.getvalue(), headers=headers).status_code, 409)
+        self.enable()
+        self.http.put('/api/me/profile', json={'name':'Érica'}).raise_for_status()
+        for _ in range(2):
+            self.http.post(path + '/operator-attachment', content=payload.getvalue(), headers=headers).raise_for_status()
+        self.assertEqual(self.other.post(path + '/operator-attachment', content=payload.getvalue(), headers=headers).status_code, 404)
+        timeline = self.http.get(path).json()['messages']
+        images = [m for m in timeline if m.get('attachment_kind') == 'image']
+        self.assertEqual(len(images), 1)
+        self.assertEqual((images[0]['name'], images[0]['content']), ('Érica', 'Uma legenda'))
+        with patch('app.whatsapp.bridge.send', return_value='wamid.synthetic') as send:
+            while deliver_one():
+                pass
+        media_calls = [call for call in send.call_args_list if 'operator_media' in call.kwargs]
+        self.assertEqual(len(media_calls), 1)
+        self.assertEqual(media_calls[0].args[3], '*Érica*\nUma legenda')
+        self.assertEqual(media_calls[0].kwargs['operator_media'][0], 'image')
+
+    def test_handover_audio_is_normalized_and_playable_in_admin(self):
+        import io
+        import wave
+        from uuid import uuid4
+        import av
+
+        self.enable()
+        path = '/api/admin/conversations/' + self.cid
+        raw = io.BytesIO()
+        with wave.open(raw, 'wb') as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(16000)
+            wav.writeframes(b'\x00\x00' * 8000)
+        response = self.http.post(path + '/operator-attachment', content=raw.getvalue(),
+            headers={'X-Media-Request':str(uuid4()), 'X-Media-Kind':'audio'})
+        response.raise_for_status()
+        media = self.http.get(path + '/attachments/' + response.json()['message_id'])
+        self.assertEqual(media.headers['content-type'], 'audio/mpeg')
+        with av.open(io.BytesIO(media.content)) as container:
+            self.assertGreater(sum(frame.samples for frame in container.decode(audio=0)), 0)
+
     def test_logout_and_expired_heartbeat_trigger_bounded_termination(self):
         from app.db import Session
         from app.models import now

@@ -85,6 +85,7 @@ function drawConvoBody(position) {
     drawConvoBody();
   });
   mountCallingControls(c);
+  stopOperatorRecordingUnless(c?.can_reply !== false ? c?.id : null);
   if (!c) return;
   wireConversation(c, position?.id === c.id ? position : null);
 }
@@ -119,16 +120,27 @@ function wireConversation(c, position) {
     input.onkeydown = event => {
       if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); }
     };
-    const button = form.querySelector('button');
+    const button = form.querySelector('[type="submit"]');
     button.disabled = sendingHumanReplies.has(draftKey);
+    mountOperatorMedia(form, c);
     form.onsubmit = async event => {
       event.preventDefault();
       const content = input.value.trim();
-      if (!content || sendingHumanReplies.has(draftKey)) return;
+      const attachment = await finishOperatorRecording(c.id) || operatorAttachments.get(c.id);
+      if (displayedConversation !== c.id || (!content && !attachment) || sendingHumanReplies.has(draftKey)) return;
       sendingHumanReplies.add(draftKey);
       button.disabled = true;
       try {
-        await api(path + '/messages', 'POST', {content});
+        if (attachment) {
+          await sendOperatorMedia(path, attachment, attachment.kind === 'audio' ? '' : content);
+          clearOperatorAttachment(c.id);
+          if (attachment.kind === 'audio') {
+            await refresh();
+            return;
+          }
+        } else {
+          await api(path + '/messages', 'POST', {content});
+        }
         if (humanDrafts.get(draftKey)?.trim() === content) humanDrafts.delete(draftKey);
         const current = displayedConversation === c.id ? $('#humanText') : null;
         if (current?.value.trim() === content) current.value = '';
@@ -137,7 +149,7 @@ function wireConversation(c, position) {
       finally {
         sendingHumanReplies.delete(draftKey);
         if (displayedConversation === c.id) {
-          const currentButton = $('#humanForm button');
+          const currentButton = $('#humanForm [type="submit"]');
           if (currentButton) currentButton.disabled = false;
         }
       }
@@ -156,13 +168,14 @@ function conversationDetail(c) {
   const initials = c.name === 'Nome não informado' ? '#' : c.name.trim().split(/\s+/).slice(0,2).map(word => word[0]).join('').toUpperCase();
   const readonly = me.role === 'leitura';
   const human = c.status === 'humano';
+  const canReply = human && !readonly && c.can_reply !== false;
   return `<header class="d-head">
     <div class="d-top">
       <button type="button" class="btn btn-ghost btn-sm back" aria-label="Voltar aos atendimentos">‹</button>
       <span class="ini" aria-hidden="true">${esc(initials)}</span>
       <div class="d-id"><h2>${contactLabel(c)}</h2><p class="d-sub"><b class="${esc(c.status)}">${esc(statusLabel(c.status))}</b><span>${conversationChannel(c.channel)}</span></p></div>
       <div class="handover-actions">
-        ${readonly ? '' : human ? '<button class="btn btn-ghost btn-sm" id="release">Devolver à ' + esc(assistantName()) + '</button>' : '<button class="btn btn-primary btn-sm" id="take">Assumir atendimento</button>'}
+        ${readonly ? '' : human ? (canReply ? '<button class="btn btn-ghost btn-sm" id="release">Devolver à ' + esc(assistantName()) + '</button>' : '') : '<button class="btn btn-primary btn-sm" id="take">Assumir atendimento</button>'}
         ${c.blocked && !readonly ? '<button class="btn btn-danger btn-sm" id="unblock">Desbloquear contato</button>' : ''}
       </div>
     </div>
@@ -171,8 +184,9 @@ function conversationDetail(c) {
   </header>
   <div id="calling-slot"></div>
   <div class="thread-wrap"><div class="thread" role="log" aria-label="Mensagens da conversa">${conversationMessages(c)}</div><button id="jumpMessages" type="button" hidden>Ir para as últimas mensagens ↓</button></div>
-  ${human && !readonly ? `<form id="humanForm" class="reply-box">
-    <textarea id="humanText" class="input" rows="1" required aria-label="Sua resposta ao cliente" placeholder="Escreva sua mensagem"></textarea>
+  ${canReply ? `<form id="humanForm" class="reply-box">
+    ${operatorMediaControls(c)}
+    <textarea id="humanText" class="input" rows="1" aria-label="Sua resposta ao cliente" placeholder="Escreva sua mensagem"></textarea>
     <button type="submit" class="go" aria-label="Enviar mensagem"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m2 9 15-6-5 15-3-6-7-3Zm7 3 8-9"/></svg></button>
     <small>Enter para enviar · Shift + Enter para uma nova linha</small>
   </form>` : `<div class="lumi-banner"><b>${readonly ? 'Visualização do atendimento' : esc(statusLabel(c.status))}</b></div>`}`;

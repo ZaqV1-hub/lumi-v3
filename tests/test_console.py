@@ -55,6 +55,21 @@ class ConsoleTest(unittest.TestCase):
         self.assertIn('<h1 id="assistantName">Ana</h1>', self.operator.get('/chat/breve').text)
         self.assertIn('<h1 id="assistantName">Lumi</h1>', self.customer.get('/chat/rincao').text)
 
+    def test_operator_can_update_own_name_and_confirm_password(self):
+        credentials = {'email': 'isaque@rincao.local', 'password': 'demo1234'}
+        with TestClient(main.app) as other_session:
+            other_session.post('/api/login', json=credentials).raise_for_status()
+            endpoint = '/api/me/profile'
+            self.assertEqual(self.customer.put(endpoint, json={'name':'Érica'}).json(), {'name':'Érica'})
+            self.assertEqual(self.customer.get('/api/me').json()['name'], 'Érica')
+            wrong = {'name':'Outro nome', 'current_password':'demo1234', 'password':'new-password', 'confirm_password':'different'}
+            self.assertEqual(self.customer.put(endpoint, json=wrong).status_code, 422)
+            self.assertEqual(self.customer.get('/api/me').json()['name'], 'Érica')
+            self.customer.put(endpoint, json={**wrong, 'name':'Érica', 'confirm_password':'new-password'}).raise_for_status()
+            self.assertEqual(other_session.get('/api/me').status_code, 401)
+            self.assertEqual(other_session.post('/api/login', json=credentials).status_code, 401)
+            other_session.post('/api/login', json={**credentials, 'password':'new-password'}).raise_for_status()
+
     def test_temporary_password_requires_change_and_is_not_retrievable(self):
         access=self.create_access();temporary=access['temporary_password']
         self.assertNotIn(temporary,self.operator.get('/api/console/users').text)

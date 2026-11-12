@@ -43,7 +43,7 @@ def messages(db, tenant_id, cid):
             "content": m.content,
             "created_at": timestamp(m.created_at),
             "attachment_kind": "document" if document else incoming.kind if incoming else None,
-            "attachment_name": document.filename if document else None,
+            "attachment_name": document.filename if document else "Documento.pdf" if incoming and incoming.kind == "document" else None,
             "attachment_url": f"/api/admin/conversations/{cid}/attachments/{m.id}" if document or incoming else None,
             "image_id": db.get(MessageImage, m.id).image_id
             if db.get(MessageImage, m.id)

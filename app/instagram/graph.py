@@ -7,7 +7,7 @@ import httpx
 from .config import value
 
 
-def send(profile_id, token_env, recipient, text, image_url=None):
+def send(profile_id, token_env, recipient, text, image_url=None, *, media_kind="image"):
     version=value("INSTAGRAM_GRAPH_VERSION") or "v25.0"
     if not re.fullmatch(r"v\d+\.\d+",version) or not profile_id.isdigit() or not recipient.isdigit():
         raise RuntimeError("Canal Instagram inválido")
@@ -17,7 +17,7 @@ def send(profile_id, token_env, recipient, text, image_url=None):
     if host not in ("graph.instagram.com", "graph.facebook.com"):
         raise RuntimeError("Endereço da API Instagram inválido")
     messages=[{"text":text[i:i+1000]} for i in range(0,len(text),1000)]
-    if image_url:messages.append({"attachment":{"type":"image","payload":{"url":image_url}}})
+    if image_url:messages.append({"attachment":{"type":media_kind,"payload":{"url":image_url}}})
     last=""
     with httpx.Client(timeout=25) as client:
         for message in messages:

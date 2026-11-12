@@ -23,7 +23,7 @@ def download_media(media_id, token_env):
         return bytes(data),metadata.get('mime_type','')
 
 
-def send(phone_id, token_env, recipient, text, image_data=None, *, document=None):
+def send(phone_id, token_env, recipient, text, image_data=None, *, document=None, operator_media=None):
     version = required("WHATSAPP_GRAPH_VERSION")
     if not re.fullmatch(r"v\d+\.\d+", version):
         raise RuntimeError("Versão Graph API inválida.")
@@ -37,23 +37,27 @@ def send(phone_id, token_env, recipient, text, image_data=None, *, document=None
             "type": "text",
             "text": {"body": text[:4096]},
         }
-        if image_data or document:
-            kind = "document" if document else "image"
-            filename, data, mime = (*document, "application/pdf") if document else ("image.jpg", image_data, "image/jpeg")
+        if image_data or document or operator_media:
+            if operator_media:
+                kind, filename, data, mime = operator_media
+            elif document:
+                kind, (filename, data, mime) = "document", (*document, "application/pdf")
+            else:
+                kind, (filename, data, mime) = "image", ("image.jpg", image_data, "image/jpeg")
             media = client.post(
                 url + "/media",
                 data={"messaging_product": "whatsapp"},
                 files={"file": (filename, data, mime)},
             )
             media_id = check(media)["id"]
-            if len(text) > 1024:
+            if kind != "audio" and len(text) > 1024:
                 check(client.post(url + "/messages", json=payload))
             payload["type"] = kind
-            payload[kind] = {"id": media_id, "caption": text if len(text) <= 1024 else ""}
-            if document:
+            payload[kind] = {"id": media_id}
+            if kind != "audio" and 0 < len(text) <= 1024:
+                payload[kind]["caption"] = text
+            if kind == "document":
                 payload[kind]["filename"] = filename
-                if not payload[kind]["caption"]:
-                    payload[kind].pop("caption")
             payload.pop("text")
         result = check(client.post(url + "/messages", json=payload))
         return result["messages"][0]["id"]

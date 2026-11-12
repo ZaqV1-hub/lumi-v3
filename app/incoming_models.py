@@ -10,7 +10,7 @@ class IncomingAttachment(Base):
     conversation_id: Mapped[str] = mapped_column(String(36))
     kind: Mapped[str] = mapped_column(String(10))
     mime: Mapped[str] = mapped_column(String(40))
-    data: Mapped[bytes] = mapped_column(LargeBinary)
+    data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
     caption: Mapped[str] = mapped_column(Text, default="")
     transcript: Mapped[str] = mapped_column(Text, default="")
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)

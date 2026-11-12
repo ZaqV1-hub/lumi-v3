@@ -243,10 +243,7 @@ async function boot() {
   $(".tenant .status").textContent=assistantName() + (me.lumi_enabled ? " ativa" : " desativada");
   $(".tenant .status").classList.toggle("off",!me.lumi_enabled);
   $(".tenant .av").textContent = me.tenant.slice(0, 2).toUpperCase();
-  $("#userBtn .name").textContent = me.name;
-  $("#userBtn .av").textContent = me.name[0];
-  $(".um-id b").textContent = me.name + " · " + me.tenant;
-  $(".um-id span").textContent = "";
+  paintAccountName();
   route();
   $("#app").hidden = false;
   void loadConversationRoles();
@@ -258,6 +255,7 @@ function page() {
 function route() {
   mountCallingControls(null);
   let p = page();
+  if (p !== 'conversas') stopOperatorRecordingUnless(null);
   if(p==="consumo"&&me.role!=="brevia"){p="dashboard";history.replaceState(null,"",location.pathname+location.search+"#dashboard");}
   document.body.classList.remove("nav-open");
   closeUserMenu();

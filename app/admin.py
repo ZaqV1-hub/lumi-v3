@@ -6,7 +6,7 @@ from .db import Session
 from .models import Conversation, Contact, Message, MessageAuthor, Tenant, KnowledgeItem
 from .schemas import TextInput, Settings, Knowledge, ContactRole
 from .conversations import conversation, messages, timestamp
-from .media_models import TenantPreferences, ContactGate
+from .media_models import TenantPreferences, ContactGate, ConversationControl
 from .spam import admission_lock, control
 from .whatsapp.models import Chat
 from .channels import channel_name
@@ -50,11 +50,13 @@ def conversations(user=Depends(current_user)):
             contact = db.get(Contact, c.contact_id)
             profile = profile_state(db, user.tenant_id, c.contact_id)
             channel = channel_name(db, c.id)
+            state = db.get(ConversationControl, c.id) if c.status == 'humano' else None
             result.append({
                 "id": c.id,
                 "contact_id": c.contact_id,
                 "profile": profile,
                 "status": c.status,
+                "can_reply": bool(state and state.operator_id == user.id and user.console_role != 'leitura'),
                 "name": _conversation_name(contact.name, channel, profile),
                 "role": contact.role,
                 "channel": channel,

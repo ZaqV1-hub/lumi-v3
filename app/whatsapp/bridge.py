@@ -9,6 +9,7 @@ from ..spam import admission_lock
 from .models import Channel, Chat, Inbox, Outbox, DeliveryStatus
 from .graph import send
 from ..documents import message_document
+from ..operator_media import FILENAMES, operator_attachment
 from .follow_up import arm_after_send, may_send
 
 
@@ -164,6 +165,9 @@ def deliver_one():
         image = db.get(ImageAsset, attached.image_id) if attached else None
         document = message_document(db, message.tenant_id, message.conversation_id, mid)
         attachment = {"document": (document.filename, document.data)} if document else {}
+        operator_file = operator_attachment(db, message)
+        if operator_file:
+            attachment["operator_media"] = (operator_file.kind, FILENAMES[operator_file.kind], operator_file.data, operator_file.mime)
         args = (
             channel.phone_number_id,
             channel.token_env,

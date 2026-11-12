@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Response
 from ..db import Session
 from ..media_models import ImageAsset, MessageImage
 from ..models import Message
+from ..operator_media import operator_attachment
 from .config import value
 from .models import Channel, Chat, MediaAccess
 
@@ -12,7 +13,8 @@ router=APIRouter()
 
 
 def public_image(db, message_id):
-    if not db.get(MessageImage,message_id):return None
+    if not db.get(MessageImage,message_id) and not operator_attachment(db, db.get(Message, message_id)):
+        return None
     base=value("INSTAGRAM_PUBLIC_BASE_URL").rstrip("/")
     url=urlsplit(base)
     if url.scheme!="https" or not url.hostname or url.username or url.query or url.fragment:
@@ -33,6 +35,12 @@ def image(token:str):
         channel=db.get(Channel,chat.profile_id) if chat else None
         attached=db.get(MessageImage,message.id) if message else None
         asset=db.get(ImageAsset,attached.image_id) if attached else None
-        if not asset or not channel or asset.tenant_id!=channel.tenant_id or message.tenant_id!=channel.tenant_id:
+        if not channel or message.tenant_id != channel.tenant_id:
             raise HTTPException(404)
-        return Response(asset.data,media_type="image/jpeg",headers={"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"})
+        attachment = operator_attachment(db, message)
+        headers = {"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}
+        if attachment and attachment.kind in ("image", "audio", "video"):
+            return Response(attachment.data, media_type=attachment.mime, headers=headers)
+        if not asset or asset.tenant_id != channel.tenant_id:
+            raise HTTPException(404)
+        return Response(asset.data, media_type="image/jpeg", headers=headers)

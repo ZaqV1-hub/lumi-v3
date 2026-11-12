@@ -26,6 +26,8 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
     window.RTCPeerConnection=class extends Peer{constructor(...args){super(...args);window.qaPeers.push(this);if(window.qaIceFailure)Object.defineProperty(this,'iceGatheringState',{get:()=> 'gathering'});}};
     navigator.mediaDevices.getUserMedia=async options=>{if(window.qaDenyMic)throw new DOMException('Denied fixture','NotAllowedError');const stream=await media(options);window.qaTracks.push(...stream.getTracks());return stream;};
   });
+  let operatorName='Operadora teste';
+  const uploads=[];
   const convo={id:'conversation-demo',name:'Nome não informado',contact_id:'contact-demo',channel:'whatsapp',status:'humano',role:'cliente',profile:{},messages:[]};
   await context.route('**/*',async route=>{
     const req=route.request(),url=new URL(req.url());
@@ -58,7 +60,13 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
       else if(url.pathname.endsWith('/terminate')){call={...call,state:'ended',active:false,version:3};active=null;data=call;}
       else if(url.pathname.endsWith('/calls/call-demo'))data={...call,answer_sdp:answer};
       else throw Error('Unexpected calling URL '+url.pathname);
-    }else if(url.pathname==='/api/me')data={name:'Operadora teste',tenant:'Empresa fictícia',assistant_name:'Ana',tenant_id:'tenant-demo',slug:'demo',role:'operador',lumi_enabled:true};
+    }else if(url.pathname==='/api/me/profile'){operatorName=req.postDataJSON().name;data={name:operatorName};}
+    else if(url.pathname.endsWith('/operator-attachment')){
+      const kind=req.headers()['x-media-kind'], caption=decodeURIComponent(req.headers()['x-lumi-caption']);
+      uploads.push({kind,caption,bytes:req.postDataBuffer().length});
+      convo.messages.push({sender:'humano',name:operatorName,content:caption || 'Áudio do atendente',attachment_kind:kind});
+      data={ok:true};
+    }else if(url.pathname==='/api/me')data={name:operatorName,tenant:'Empresa fictícia',assistant_name:'Ana',tenant_id:'tenant-demo',slug:'demo',role:'operador',lumi_enabled:true};
     else if(url.pathname.endsWith('/conversations'))data=[convo];
     else if(url.pathname.endsWith('/settings'))data={};
     else if(url.pathname.endsWith('/role-instructions'))data=[{role:'cliente',label:'Cliente'}];
@@ -69,6 +77,24 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
   try{
     await page.goto(base+'/admin?tenant=tenant-demo#conversas');
     await page.getByRole('button',{name:'Devolver à Ana',exact:true}).waitFor();
+    await page.locator('#userBtn').click();
+    await page.getByRole('menuitem',{name:'Alterar dados'}).click();
+    await page.getByLabel('Nome de atendimento').fill('Érica');
+    await page.getByRole('button',{name:'Salvar',exact:true}).click();
+    await page.locator('#userBtn .name').getByText('Érica',{exact:true}).waitFor();
+    await page.locator('#humanForm input[type="file"]').setInputFiles({name:'foto.png',mimeType:'image/png',buffer:Buffer.from('fixture')});
+    await page.getByText('foto.png',{exact:true}).waitFor();
+    await page.getByRole('textbox',{name:'Sua resposta ao cliente'}).fill('Uma legenda');
+    await page.getByRole('button',{name:'Enviar mensagem'}).click();
+    await page.locator('.thread').getByText('Uma legenda',{exact:true}).waitFor();
+    assert.deepEqual(uploads[0],{kind:'image',caption:'Uma legenda',bytes:7});
+    await page.getByRole('button',{name:'Gravar áudio'}).click();
+    await page.getByRole('button',{name:'Pausar gravação'}).click();
+    await page.getByRole('button',{name:'Retomar gravação'}).click();
+    await page.waitForTimeout(400);
+    await page.getByRole('button',{name:'Enviar mensagem'}).click();
+    await page.locator('.thread').getByText('Áudio do atendente',{exact:true}).waitFor();
+    assert.equal(uploads[1].kind,'audio');assert(uploads[1].bytes>0);
     assert.equal(await page.locator('.tenant .status').textContent(),'Ana ativa');
     const search = page.getByRole('textbox',{name:'Buscar por nome ou ID'});
     await search.fill('id-sem-correspondencia');
