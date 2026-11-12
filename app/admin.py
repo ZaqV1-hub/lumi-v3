@@ -14,6 +14,7 @@ from .tenant_runtime import assistant_name
 from .onboarding import profile_state
 from .role_instructions import RoleInstruction
 from .whatsapp.calling import lock_conversation, has_active_call
+from .whatsapp.calling_timeline import call_timeline, with_calls
 
 router = APIRouter()
 
@@ -43,6 +44,7 @@ def conversations(user=Depends(current_user)):
             .order_by(func.coalesce(activity.c.latest, Conversation.created_at).desc(),
                       Conversation.created_at.desc(), Conversation.id.desc())
         )
+        calls = call_timeline(db, user.tenant_id)
         result = []
         for c in rows:
             contact = db.get(Contact, c.contact_id)
@@ -61,7 +63,7 @@ def conversations(user=Depends(current_user)):
                     db.get(ContactGate, c.contact_id)
                     and db.get(ContactGate, c.contact_id).blocked
                 ),
-                "messages": messages(db, user.tenant_id, c.id),
+                "messages": with_calls(messages(db, user.tenant_id, c.id), calls.get(c.id)),
             })
         return result
 
@@ -70,7 +72,8 @@ def conversations(user=Depends(current_user)):
 def detail(cid: str, user=Depends(current_user)):
     with Session() as db:
         c = conversation(db, user.tenant_id, cid)
-        return {"status": c.status, "messages": messages(db, user.tenant_id, cid)}
+        calls = call_timeline(db, user.tenant_id, cid)
+        return {"status": c.status, "messages": with_calls(messages(db, user.tenant_id, cid), calls.get(cid))}
 
 
 @router.put("/api/admin/conversations/{cid}/role")

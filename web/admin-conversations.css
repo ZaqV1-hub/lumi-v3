@@ -43,6 +43,7 @@
 .conversations-view .msg.me{align-self:flex-end;background:#0B7A76;color:#fff;border-bottom-right-radius:5px}
 .conversations-view .msg.me time{text-align:right}
 .conversations-view .msg.system{max-width:92%;text-align:center;color:var(--ink-2)}
+.conversations-view .msg.call-event{background:var(--teal-soft)}
 .conversations-view .msg.fail{outline:1.5px dashed var(--pink);outline-offset:2px}
 .conversations-view .msg img,.conversations-view .msg video,.conversations-view .msg audio{display:block;max-width:100%;width:260px}
 .conversations-view .msg img,.conversations-view .msg video{max-height:300px;object-fit:contain;object-position:left;border-radius:12px;margin:0}

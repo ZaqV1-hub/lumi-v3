@@ -113,6 +113,8 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
     await page.setViewportSize({width:390,height:844});await page.locator('.c-item').first().click();
     await page.screenshot({path:path.join(out,'mobile-connected.png'),fullPage:true,animations:'disabled'});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.getByRole('button',{name:'Encerrar chamada',exact:true}).click();await page.locator('#calling-status').filter({hasText:'Chamada encerrada'}).waitFor();
+    convo.messages.push({sender:'sistema', event_kind:'whatsapp_call', content:'Ligação pelo WhatsApp por Operadora teste · encerrada · 0:18'});
+    await page.locator('.thread .call-event').getByText('Ligação pelo WhatsApp por Operadora teste · encerrada · 0:18').waitFor();
     assert.equal(await page.evaluate(()=>window.qaTracks.every(t=>t.readyState==='ended')&&window.qaPeers.every(p=>p.connectionState==='closed')),true);
     await page.waitForFunction(()=>document.querySelector('[data-calling="start"]')?.disabled===false);
     await start.click();await page.locator('#calling-status').filter({hasText:'Chamando'}).waitFor();await page.getByRole('button',{name:'Cancelar chamada',exact:true}).click();await page.locator('#calling-status').filter({hasText:'Chamada encerrada'}).waitFor();

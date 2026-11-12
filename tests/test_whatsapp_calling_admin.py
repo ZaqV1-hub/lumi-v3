@@ -219,6 +219,36 @@ class CallingAdminTest(unittest.TestCase):
             self.assertIsNone(response.json()['answer_sdp'])
         self.assertEqual(self.http.post('/api/admin/conversations/' + self.cid + '/release').status_code, 200)
 
+    def test_call_appears_once_in_admin_timeline_and_stays_out_of_client_history(self):
+        from app.db import Session
+        from app.models import Message, VisitorSession
+        from app.whatsapp import calling
+        from app.whatsapp.calling_models import CallOperation
+
+        self.enable()
+        with patch('app.whatsapp.calling_graph.get_permission', return_value=dict(GRANTED)), \
+             patch('app.whatsapp.calling_graph.connect', return_value='wacid.synthetic'):
+            call_id = self.start().json()['id']
+        with Session.begin() as db:
+            call = db.get(CallOperation, call_id)
+            calling.update_operation(db, call, state='accepted')
+            call.connected_at = calling.now() - timedelta(seconds=18)
+            calling.update_operation(db, call, state='ended')
+            db.add(Message(tenant_id=self.tid, conversation_id=self.cid, sender='cliente',
+                           content='Mensagem depois da chamada'))
+            db.add(VisitorSession(token='synthetic-visitor', tenant_id=self.tid, conversation_id=self.cid))
+
+        path = '/api/admin/conversations'
+        detail = self.http.get(path + '/' + self.cid).json()['messages']
+        listing = next(row for row in self.http.get(path).json() if row['id'] == self.cid)
+        self.assertEqual(listing['messages'], detail)
+        self.assertEqual([item.get('event_kind') for item in detail].count('whatsapp_call'), 1)
+        self.assertEqual(detail[-2]['id'], f'call:{call_id}')
+        self.assertIn('encerrada · 0:18', detail[-2]['content'])
+        self.assertEqual(detail[-1]['content'], 'Mensagem depois da chamada')
+        self.assertEqual(self.other.get(path + '/' + self.cid).status_code, 404)
+        self.assertNotIn(f'call:{call_id}', [item['id'] for item in self.http.get('/api/client/synthetic-visitor').json()['messages']])
+
     def test_logout_and_expired_heartbeat_trigger_bounded_termination(self):
         from app.db import Session
         from app.models import now

@@ -209,7 +209,7 @@ function conversationMessages(c) {
       const link = part.replace(/[.,;!?]+$/, '');
       return `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(link)}</a>${esc(part.slice(link.length))}`;
     }).join('');
-    return `${separator}<div class="msg ${kind}${m.delivery === 'failed' ? ' fail' : ''}">${m.name ? `<strong>${esc(m.name)}</strong>` : ''}
+    return `${separator}<div class="msg ${kind}${m.event_kind === 'whatsapp_call' ? ' call-event' : ''}${m.delivery === 'failed' ? ' fail' : ''}">${m.name ? `<strong>${esc(m.name)}</strong>` : ''}
       ${media}<div class="tx">${content}</div><time>${esc(metadata)}${m.delivery_error ? '<br>' + esc(m.delivery_error) : ''}</time></div>`;
   }).join('') || '<div class="empty">Esta conversa ainda não tem mensagens.</div>';
 }

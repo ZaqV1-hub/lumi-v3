@@ -29,7 +29,10 @@ function renderDash(){
     <section class="card">
       <div class="card-h"><h2>Últimos atendimentos</h2><a class="link" href="#conversas" data-reset>Ver todos →</a></div>
       <div class="card-b recent">
-        ${convos.slice(0,4).map(c=>`<a href="#conversas" data-open="${c.id}"><span class="ini">${esc(c.name.slice(0,2).toUpperCase())}</span><div style="min-width:0"><div class="r-name">${esc(c.name)} <span>· ${c.channel==="whatsapp"?"WhatsApp":c.channel==="instagram"?"Instagram":c.channel==="instagram_comment"?"Comentário Instagram":"Simulador"}</span></div><div class="r-msg">${esc(assistantName())}: ${esc(c.messages.at(-1)?.content||"Conversa iniciada")}</div></div><span class="r-time num">${new Date(c.messages.at(-1)?.created_at||c.created_at).toLocaleTimeString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit"})}</span></a>`).join("")}
+        ${convos.slice(0,4).map(c=>{
+          const last = c.messages.filter(m => m.event_kind !== 'whatsapp_call').at(-1);
+          return `<a href="#conversas" data-open="${c.id}"><span class="ini">${esc(c.name.slice(0,2).toUpperCase())}</span><div style="min-width:0"><div class="r-name">${esc(c.name)} <span>· ${c.channel==="whatsapp"?"WhatsApp":c.channel==="instagram"?"Instagram":c.channel==="instagram_comment"?"Comentário Instagram":"Simulador"}</span></div><div class="r-msg">${esc(assistantName())}: ${esc(last?.content||"Conversa iniciada")}</div></div><span class="r-time num">${new Date(last?.created_at||c.created_at).toLocaleTimeString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit"})}</span></a>`;
+        }).join("")}
       </div>
     </section>
   </div>`;
