@@ -14,6 +14,7 @@ from ..media_models import ContactGate
 from .config import app_secret, load_config
 from .models import Channel, Inbox
 from .bridge import receive, deliver_one, record_delivery
+from .follow_up import poll as poll_follow_up
 from .calling_webhook import is_permission_reply, process_permission, process_calls
 from .calling_models import CALLING_TABLES
 from .checkout_proxy import router as checkout_router
@@ -58,12 +59,13 @@ async def lifespan(_):
             await asyncio.sleep(0.1 if had_item else 0.5)
 
     worker = asyncio.create_task(deliver())
-    yield
-    worker.cancel()
+    follow_up = asyncio.create_task(poll_follow_up())
     try:
-        await worker
-    except asyncio.CancelledError:
-        pass
+        yield
+    finally:
+        worker.cancel()
+        follow_up.cancel()
+        await asyncio.gather(worker, follow_up, return_exceptions=True)
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)

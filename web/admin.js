@@ -462,7 +462,7 @@ function detail(c) {
           '">' +
           (m.name ? "<strong>" + esc(m.name) + "</strong>" : "") +
           esc(m.content) +
-          (m.attachment_kind === 'image' ? '<a href="'+esc(adminPath(m.attachment_url))+'" target="_blank" rel="noopener"><img src="'+esc(adminPath(m.attachment_url))+'" alt="Imagem enviada pelo cliente"></a>' : m.attachment_kind === 'audio' ? '<audio controls preload="metadata" src="'+esc(adminPath(m.attachment_url))+'" style="display:block;max-width:100%;margin-top:8px"></audio>' : '') +
+          (m.attachment_kind === 'image' ? '<a href="'+esc(adminPath(m.attachment_url))+'" target="_blank" rel="noopener"><img src="'+esc(adminPath(m.attachment_url))+'" alt="Imagem enviada pelo cliente"></a>' : m.attachment_kind === 'audio' ? '<audio controls preload="metadata" src="'+esc(adminPath(m.attachment_url))+'" style="display:block;max-width:100%;margin-top:8px"></audio>' : m.attachment_kind === 'document' ? '<a href="'+esc(adminPath(m.attachment_url))+'">'+esc(m.attachment_name)+'</a>' : '') +
           (m.image_id
             ? '<a href="'+esc(adminPath('/api/admin/images/'+m.image_id+'/file'))+'" target="_blank"><img src="'+esc(adminPath('/api/admin/images/'+m.image_id+'/file'))+'" alt="Imagem enviada pela Lumi"></a>'
             : "") +

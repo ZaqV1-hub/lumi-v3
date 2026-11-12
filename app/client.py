@@ -18,6 +18,8 @@ from .models import (
     FeatureCall,
 )
 from .reply_delivery import save_reply
+from .documents import MessageDocument, available_documents, document_context
+from .whatsapp.follow_up import schedule
 from .schemas import Start, TextInput
 from .conversations import conversation, messages, visitor
 from .features import request_handover, asks_for_human
@@ -296,6 +298,9 @@ def answer_message(token, data, cutoff, revision):
             )
         )
         prompt += image_context(images)
+        documents = available_documents(db, tid, cid)
+        document_ids = [document.id for document in documents]
+        prompt += document_context(documents)
         if images:
             sent_images = list(db.scalars(select(MessageImage.image_id).where(
                 MessageImage.message_id.in_([item.id for item in history if item.sender == "lumi"]),
@@ -326,6 +331,8 @@ def answer_message(token, data, cutoff, revision):
     try:
         kwargs = {"images": visual_data} if visual_data else {}
         if tools: kwargs["tools"] = tools
+        if document_ids:
+            kwargs["document_ids"] = document_ids
         try:
             answer = reply(prompt, tenant_id=tid, **kwargs)
         except subprocess.TimeoutExpired:
@@ -434,7 +441,17 @@ def answer_message(token, data, cutoff, revision):
                 )
             if image_id and image_allowed and not image:
                 raise HTTPException(503, "A imagem deixou de estar disponível. Sua mensagem foi salva; tente novamente em instantes.")
-            response_messages = save_reply(db, tid, cid, answer, revision, has_image=image is not None)
+            document = None
+            if profile_answer.get("action") == "send_document":
+                current_contact = db.get(Contact, contact.id)
+                if current_contact.role != role or not allows_role(db, tid, role):
+                    return {"ok": True}
+                document = next((item for item in available_documents(db, tid, cid)
+                                 if item.id == profile_answer.get("document_id") and item.id in document_ids), None)
+                if not document:
+                    raise HTTPException(503, "O documento não está disponível para envio.")
+            response_messages = save_reply(db, tid, cid, answer, revision, has_image=image is not None,
+                                           has_document=document is not None)
             message = response_messages[-1]
             if called_tool:
                 feature = db.scalar(select(Feature).where(Feature.tenant_id == tid, Feature.name == called_tool))
@@ -445,4 +462,7 @@ def answer_message(token, data, cutoff, revision):
                     db.add(ToolReplyAccess(message_id=response_message.id, feature_id=feature_id))
             if image:
                 db.add(MessageImage(message_id=message.id, image_id=image.id))
+            if document:
+                db.add(MessageDocument(message_id=message.id, document_id=document.id))
+            schedule(db, message, scoped_message_id(tid, cid), revision)
     return {"ok": True}

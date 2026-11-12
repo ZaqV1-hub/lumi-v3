@@ -109,6 +109,11 @@ def prepare_audio(receipt):
 
 
 def file_response(db, tid, cid, mid):
+    from .documents import document_response, message_document
+
+    document = message_document(db, tid, cid, mid)
+    if document:
+        return document_response(document)
     row = db.scalar(select(IncomingAttachment).where(IncomingAttachment.tenant_id==tid,
         IncomingAttachment.conversation_id==cid, IncomingAttachment.message_id==mid))
     if not row: raise HTTPException(404, "Anexo não encontrado")

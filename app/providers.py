@@ -31,7 +31,7 @@ CODEX_CONFIG = {
 }
 
 
-def reply(prompt: str, tools=None, images=None, *, tenant_id=None):
+def reply(prompt: str, tools=None, images=None, *, tenant_id=None, document_ids=(), follow_up=False):
     config = configuration(tenant_id)
     provider, model = config.provider, config.model
     if provider == "demo":
@@ -61,6 +61,12 @@ def reply(prompt: str, tools=None, images=None, *, tenant_id=None):
         "required": ["reply", "action", "image_id", "image_intent", "profile_updates", "asked_objective_id", "tool_call"],
         "additionalProperties": False,
     }
+    if document_ids:
+        schema["properties"]["action"]["enum"].append("send_document")
+        schema["properties"]["document_id"] = {"type": ["string", "null"], "enum": [None, *document_ids]}
+        schema["required"].append("document_id")
+    if follow_up:
+        schema["properties"]["action"]["enum"] = ["none", "skip_follow_up"]
     if provider == "openai":
         from .openai_provider import reply as openai_reply
         return openai_reply(prompt, schema, images, model=model, api_key=config.api_key)
@@ -135,6 +141,8 @@ def reply(prompt: str, tools=None, images=None, *, tenant_id=None):
                 raise RuntimeError("O Codex local não respondeu. Confira se ele está instalado e autenticado.")
             answer = json.loads(final)
             parsed = {"reply": answer["reply"].strip(), "action": answer["action"], "image_id": answer.get('image_id'), "image_intent": answer.get("image_intent", "none"), "profile_updates": answer.get('profile_updates', []), "asked_objective_id": answer.get('asked_objective_id'), "tool_call": answer.get('tool_call')}
+            if document_ids:
+                parsed["document_id"] = answer.get("document_id")
             status = "completed"
             return parsed
         except (json.JSONDecodeError, KeyError, TypeError) as exc:

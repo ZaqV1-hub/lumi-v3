@@ -8,6 +8,8 @@ from ..media_models import MessageImage, ImageAsset
 from ..spam import admission_lock
 from .models import Channel, Chat, Inbox, Outbox, DeliveryStatus
 from .graph import send
+from ..documents import message_document
+from .follow_up import arm_after_send, may_send
 
 
 @event.listens_for(OrmSession, "after_flush")
@@ -134,7 +136,7 @@ def finish_inbox(external_id, status, error=""):
 
 
 def deliver_one():
-    with Session.begin() as db:
+    with admission_lock, Session.begin() as db:
         item = db.scalar(
             select(Outbox)
             .where(Outbox.status == "pending")
@@ -146,7 +148,7 @@ def deliver_one():
         item.status = "sending"
         mid = item.message_id
         message = db.get(Message, mid)
-        if not may_deliver(db, message):
+        if not may_deliver(db, message) or not may_send(db, mid):
             item.status, item.error = "cancelled", "Resposta interrompida por mudança no atendimento."
             return True
         chat = db.get(Chat, message.conversation_id)
@@ -160,6 +162,8 @@ def deliver_one():
             text = f"*{author.name}*\n{text}"
         attached = db.get(MessageImage, mid)
         image = db.get(ImageAsset, attached.image_id) if attached else None
+        document = message_document(db, message.tenant_id, message.conversation_id, mid)
+        attachment = {"document": (document.filename, document.data)} if document else {}
         args = (
             channel.phone_number_id,
             channel.token_env,
@@ -168,7 +172,7 @@ def deliver_one():
             image.data if image else None,
         )
     try:
-        result = send(*args)
+        result = send(*args, **attachment)
         status, error = "sent", ""
     except Exception as exc:
         result, status, error = (
@@ -186,6 +190,7 @@ def deliver_one():
             result,
             reported.error if reported else error,
         )
+        arm_after_send(db, mid, item.status)
     return True
 
 

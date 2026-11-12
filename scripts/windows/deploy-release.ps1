@@ -76,6 +76,7 @@ try {
   Stop-Lumi "$service-webhook"
   Stop-Lumi $service
   Invoke-Helper -Arguments @('backup','--environment',$Environment,'--release-id',$ReleaseId)
+  Invoke-Helper -Arguments @('migrate-whatsapp-follow-up','--environment',$Environment,'--release-id',$ReleaseId)
   Remove-Current
   New-Item -ItemType Junction -Path $current -Target $release | Out-Null
   Start-Lumi $service

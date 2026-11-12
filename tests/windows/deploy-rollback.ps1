@@ -30,7 +30,7 @@ function Start-Service([string]$Name) {
 }
 
 try {
-  foreach ($scenario in @('success','prepare','backup','health')) {
+  foreach ($scenario in @('success','prepare','backup','migrate-whatsapp-follow-up','health')) {
     $testRoot = Join-Path $base $scenario
     foreach ($folder in @('releases\previous','staging','backups','private','data\Lumi','service')) {
       New-Item -ItemType Directory -Path (Join-Path $testRoot $folder) -Force | Out-Null

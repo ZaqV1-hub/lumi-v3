@@ -7,6 +7,7 @@ from .whatsapp.models import Outbox
 from .channels import delivery
 from .incoming_models import IncomingAttachment
 from .usage_models import ResponseRun
+from .documents import message_document
 
 
 def timestamp(value):
@@ -41,8 +42,9 @@ def messages(db, tenant_id, cid):
             "delivery": delivery(db, m.id).status if delivery(db, m.id) else None,
             "content": m.content,
             "created_at": timestamp(m.created_at),
-            "attachment_kind": db.get(IncomingAttachment, m.id).kind if db.get(IncomingAttachment, m.id) else None,
-            "attachment_url": f"/api/admin/conversations/{cid}/attachments/{m.id}" if db.get(IncomingAttachment, m.id) else None,
+            "attachment_kind": "document" if document else incoming.kind if incoming else None,
+            "attachment_name": document.filename if document else None,
+            "attachment_url": f"/api/admin/conversations/{cid}/attachments/{m.id}" if document or incoming else None,
             "image_id": db.get(MessageImage, m.id).image_id
             if db.get(MessageImage, m.id)
             else None,
@@ -53,6 +55,7 @@ def messages(db, tenant_id, cid):
             ),
         }
         for m in rows
+        for incoming, document in [(db.get(IncomingAttachment, m.id), message_document(db, tenant_id, cid, m.id))]
     ]
 
 
