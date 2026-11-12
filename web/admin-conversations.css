@@ -84,3 +84,9 @@
 .reply-box.is-recording textarea,.reply-box.is-recording .operator-media-tools,.reply-box.is-recording small{display:none}
 .reply-box.is-recording .operator-attachment-tray{grid-column:1}
 .record-indicator::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--pink);margin-right:8px}
+
+.conversation-photo{display:block;max-width:100%;padding:0;border:0;border-radius:12px;background:none;cursor:zoom-in}
+#conversationPhotoDialog{max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);padding:0;border:0;border-radius:12px;overflow:hidden;background:#15151d}
+#conversationPhotoDialog::backdrop{background:rgba(15,15,25,.78)}
+#conversationPhotoDialog img{display:block;max-width:min(calc(100vw - 32px),1200px);max-height:calc(100dvh - 32px);object-fit:contain}
+#conversationPhotoDialog button{position:absolute;top:8px;right:8px;width:36px;height:36px;border:0;border-radius:50%;background:#fff;color:#15151d;font-size:24px;cursor:pointer}

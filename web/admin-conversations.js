@@ -214,7 +214,7 @@ function conversationMessages(c) {
     const kind = {cliente:'in', sistema:'system', humano:'me', lumi:'out'}[m.sender] || 'in';
     const url = m.image_id ? adminPath('/api/admin/images/' + m.image_id + '/file') : m.attachment_url && adminPath(m.attachment_url);
     let media = '';
-    if (url && (m.image_id || m.attachment_kind === 'image')) media = `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" alt="Imagem da conversa"></a>`;
+    if (url && (m.image_id || m.attachment_kind === 'image')) media = `<button type="button" class="conversation-photo" aria-label="Ampliar imagem"><img src="${esc(url)}" alt="Imagem da conversa"></button>`;
     if (url && m.attachment_kind === 'audio') media = `<audio controls preload="metadata" src="${esc(url)}"></audio>`;
     if (url && m.attachment_kind === 'video') media = `<video controls preload="metadata" src="${esc(url)}"></video>`;
     if (url && m.attachment_kind === 'document') media = `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(m.attachment_name || 'Documento')}</a>`;
@@ -229,3 +229,17 @@ function conversationMessages(c) {
       ${media}<div class="tx">${content}</div><time>${esc(metadata)}${m.delivery_error ? '<br>' + esc(m.delivery_error) : ''}</time></div>`;
   }).join('') || '<div class="empty">Esta conversa ainda não tem mensagens.</div>';
 }
+
+const conversationPhotoDialog = document.querySelector('#conversationPhotoDialog');
+const conversationPhoto = conversationPhotoDialog.querySelector('img');
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('.conversation-photo');
+  if (!button || conversationPhotoDialog.open) return;
+  conversationPhoto.src = button.querySelector('img').src;
+  conversationPhotoDialog.showModal();
+});
+conversationPhotoDialog.addEventListener('click', event => {
+  if (event.target === conversationPhotoDialog) conversationPhotoDialog.close();
+});
+conversationPhotoDialog.addEventListener('close', () => conversationPhoto.removeAttribute('src'));
