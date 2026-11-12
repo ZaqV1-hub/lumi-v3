@@ -46,7 +46,10 @@ def document_context(documents):
     return (
         '\nSe o cliente pedir um book, PDF ou material do catálogo de documentos, use action="send_document" '
         'com document_id do catálogo. Se o empreendimento for incerto, pergunte. Envie somente o material '
-        'solicitado. Pedido apenas de foto ou planta continua no catálogo de imagens. '
+        'solicitado. Se as instruções da empresa pedirem foto e book para a mesma apresentação, '
+        'use action="send_image_and_document", com image_id e document_id do mesmo empreendimento '
+        'e image_intent="send_catalog". O campo reply acompanha a foto e deve caber na legenda. '
+        'Pedido apenas de foto ou planta continua no catálogo de imagens. '
         'Catálogo de documentos: ' + json.dumps(catalog, ensure_ascii=False)
     )
 

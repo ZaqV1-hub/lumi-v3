@@ -301,6 +301,14 @@ def answer_message(token, data, cutoff, revision):
         documents = available_documents(db, tid, cid)
         document_ids = [document.id for document in documents]
         prompt += document_context(documents)
+        if document_ids:
+            sent_documents = list(db.scalars(select(MessageDocument.document_id).where(
+                MessageDocument.message_id.in_([item.id for item in history if item.sender == "lumi"]),
+                MessageDocument.document_id.in_(document_ids),
+            ).distinct()))
+            if sent_documents:
+                prompt += ("\nBooks já anexados no histórico acima: " + ", ".join(sorted(sent_documents))
+                           + ". Reenvie o mesmo book somente se a pessoa pedir novamente.")
         if images:
             sent_images = list(db.scalars(select(MessageImage.image_id).where(
                 MessageImage.message_id.in_([item.id for item in history if item.sender == "lumi"]),
@@ -355,7 +363,7 @@ def answer_message(token, data, cutoff, revision):
             answer = reply(prompt, images=visual_data, tenant_id=tid) if visual_data else reply(prompt, tenant_id=tid)
             if isinstance(answer, dict) and answer.get("action") == "call_tool":
                 raise RuntimeError("Limite de ferramentas atingido")
-        if (isinstance(answer, dict) and answer.get("action") == "send_image" and not explicit_handover
+        if (isinstance(answer, dict) and answer.get("action") in {"send_image", "send_image_and_document"} and not explicit_handover
                 and answer.get("image_intent") in {"send_catalog", "inspect_and_send_catalog"}):
             with Session.begin() as db:
                 active = conversation(db, tid, cid)
@@ -388,7 +396,7 @@ def answer_message(token, data, cutoff, revision):
     image_id = None
     profile_answer = answer if isinstance(answer, dict) else {}
     if isinstance(answer, dict):
-        if answer.get("action") == "send_image":
+        if answer.get("action") in {"send_image", "send_image_and_document"}:
             image_id = answer.get("image_id")
         answer = answer["reply"]
     if explicit_handover or profile_answer.get("action") == "handover":
@@ -442,7 +450,7 @@ def answer_message(token, data, cutoff, revision):
             if image_id and image_allowed and not image:
                 raise HTTPException(503, "A imagem deixou de estar disponível. Sua mensagem foi salva; tente novamente em instantes.")
             document = None
-            if profile_answer.get("action") == "send_document":
+            if profile_answer.get("action") in {"send_document", "send_image_and_document"}:
                 current_contact = db.get(Contact, contact.id)
                 if current_contact.role != role or not allows_role(db, tid, role):
                     return {"ok": True}
@@ -461,7 +469,8 @@ def answer_message(token, data, cutoff, revision):
                 for feature_id in source_features:
                     db.add(ToolReplyAccess(message_id=response_message.id, feature_id=feature_id))
             if image:
-                db.add(MessageImage(message_id=message.id, image_id=image.id))
+                photo_message = response_messages[-2] if document else message
+                db.add(MessageImage(message_id=photo_message.id, image_id=image.id))
             if document:
                 db.add(MessageDocument(message_id=message.id, document_id=document.id))
             schedule(db, message, scoped_message_id(tid, cid), revision)

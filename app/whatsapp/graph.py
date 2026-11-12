@@ -52,6 +52,8 @@ def send(phone_id, token_env, recipient, text, image_data=None, *, document=None
             payload[kind] = {"id": media_id, "caption": text if len(text) <= 1024 else ""}
             if document:
                 payload[kind]["filename"] = filename
+                if not payload[kind]["caption"]:
+                    payload[kind].pop("caption")
             payload.pop("text")
         result = check(client.post(url + "/messages", json=payload))
         return result["messages"][0]["id"]

@@ -54,6 +54,9 @@ def save_reply(db, tid, cid, text, revision, *, has_image=False, has_document=Fa
     parts = [text]
     if setting and not ((has_image or has_document) and len(text) <= 1024):
         parts = split_reply(text, max(200, min(setting.max_chars, 1500)))
+    paired_media = has_image and has_document
+    if paired_media:
+        parts.append("")
     timestamp = now()
     rows = []
     for index, part in enumerate(parts):
@@ -61,7 +64,7 @@ def save_reply(db, tid, cid, text, revision, *, has_image=False, has_document=Fa
                       created_at=timestamp + timedelta(microseconds=index))
         db.add(row)
         db.flush()
-        if setting:
+        if setting or paired_media:
             db.add(ReplyPart(message_id=row.id, revision=revision))
         rows.append(row)
     return rows

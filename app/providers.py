@@ -62,7 +62,7 @@ def reply(prompt: str, tools=None, images=None, *, tenant_id=None, document_ids=
         "additionalProperties": False,
     }
     if document_ids:
-        schema["properties"]["action"]["enum"].append("send_document")
+        schema["properties"]["action"]["enum"].extend(["send_document", "send_image_and_document"])
         schema["properties"]["document_id"] = {"type": ["string", "null"], "enum": [None, *document_ids]}
         schema["required"].append("document_id")
     if follow_up:

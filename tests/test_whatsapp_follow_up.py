@@ -125,3 +125,31 @@ class WhatsAppFollowUpTest(unittest.TestCase):
             job = db.scalar(select(follow_up.FollowUp))
             self.assertTrue(job.processed)
             self.assertIsNone(job.follow_up_id)
+
+    def test_project_presentation_sends_captioned_photo_before_pdf_and_arms_one_follow_up(self):
+        from app.media_models import ImageAsset
+
+        with Session.begin() as db:
+            image = ImageAsset(tenant_id=self.tid, name="Fachada", description="Projeto teste",
+                               when_to_use="Apresentar o projeto", data=b"jpeg")
+            document = DocumentAsset(tenant_id=self.tid, title="Book teste", filename="Book.pdf",
+                                     description="Book do mesmo projeto", data=b"%PDF-test")
+            db.add_all([image, document])
+            db.flush()
+            image_id, document_id = image.id, document.id
+        self.answer("Quero conhecer esse projeto", {
+            "action": "send_image_and_document", "image_id": image_id, "document_id": document_id,
+            "image_intent": "send_catalog", "reply": "Conheça o projeto.",
+        })
+        with patch.object(bridge, "send", side_effect=["wamid.photo", "wamid.pdf"]) as send:
+            self.assertTrue(bridge.deliver_one())
+            with Session() as db:
+                self.assertIsNone(db.scalars(select(follow_up.FollowUp)).one().due_at)
+            self.assertTrue(bridge.deliver_one())
+            self.assertFalse(bridge.deliver_one())
+        self.assertEqual(send.call_args_list[0].args[3:], ("Conheça o projeto.", b"jpeg"))
+        self.assertEqual(send.call_args_list[0].kwargs, {})
+        self.assertEqual(send.call_args_list[1].args[3:], ("", None))
+        self.assertEqual(send.call_args_list[1].kwargs, {"document": ("Book.pdf", b"%PDF-test")})
+        with Session() as db:
+            self.assertIsNotNone(db.scalars(select(follow_up.FollowUp)).one().due_at)
