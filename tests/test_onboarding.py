@@ -51,6 +51,21 @@ class OnboardingTest(unittest.TestCase):
     def state(self):
         return self.admin.get("/api/admin/conversations/" + self.cid + "/profile").json()
 
+    def test_tool_turn_preserves_profile_extracted_before_the_call(self):
+        from app import client
+
+        evidence = "Sou Felipe e quero investir"
+        first = {"reply": "", "action": "call_tool", "tool_call": {"name": "visitas", "arguments": {}},
+                 "profile_updates": [{"objective_id": self.reason, "value": "investir", "evidence": evidence}]}
+        last = {"reply": "Encontrei algumas datas.", "action": "none", "profile_updates": [
+            {"objective_id": self.reason, "value": "morar", "evidence": "quero morar"},
+            {"objective_id": self.name, "value": "Felipe", "evidence": "Sou Felipe"}]}
+        with patch.object(client, "execute_tool", return_value={"data": {"ok": True}}) as tool:
+            self.send(evidence, effect=[first, last])
+            tool.assert_called_once()
+        self.assertEqual({f["id"]: f["value"] for f in self.state()["fields"]},
+                         {self.name: "Felipe", self.reason: "investir"})
+
     def test_handover_keeps_model_reply_before_external_call(self):
         from app import client
         for text, action in [("Quero falar com um humano", "none"), ("Pode me transferir?", "handover")]:
