@@ -37,13 +37,15 @@ function contactLabel(c) {
   return '<span class="contact-label">' + name + id + '</span>';
 }
 
+const visitGoalBadge = c => c.visit_confirmed ? '<span class="pill wa">Visita agendada</span>' : '';
+
 function conversationRow(c) {
   const last = c.messages.at(-1);
   const status = c.blocked ? 'Bloqueado por spam' : statusLabel(c.status);
   return `<button type="button" class="c-item" data-id="${esc(c.id)}" aria-current="${c.id === ui.conv}">
     <span class="top"><span class="pill wa">${conversationChannel(c.channel)}</span><time>${clockTime(last?.created_at || c.created_at)}</time></span>
     ${contactLabel(c)}<span class="last">${esc(last?.content || last?.attachment_name || 'Conversa iniciada')}</span>
-    <span class="pill ${c.blocked ? 'topic' : c.status}">${esc(status)}</span></button>`;
+    <span class="pill ${c.blocked ? 'topic' : c.status}">${esc(status)}</span> ${visitGoalBadge(c)}</button>`;
 }
 
 function drawConvoBody(position) {
@@ -173,7 +175,7 @@ function conversationDetail(c) {
     <div class="d-top">
       <button type="button" class="btn btn-ghost btn-sm back" aria-label="Voltar aos atendimentos">‹</button>
       <span class="ini" aria-hidden="true">${esc(initials)}</span>
-      <div class="d-id"><h2>${contactLabel(c)}</h2><p class="d-sub"><b class="${esc(c.status)}">${esc(statusLabel(c.status))}</b><span>${conversationChannel(c.channel)}</span></p></div>
+      <div class="d-id"><h2>${contactLabel(c)}</h2><p class="d-sub"><b class="${esc(c.status)}">${esc(statusLabel(c.status))}</b><span>${conversationChannel(c.channel)}</span> ${visitGoalBadge(c)}</p></div>
       <div class="handover-actions">
         ${readonly ? '' : human ? (canReply ? '<button class="btn btn-ghost btn-sm" id="release">Devolver à ' + esc(assistantName()) + '</button>' : '') : '<button class="btn btn-primary btn-sm" id="take">Assumir atendimento</button>'}
         ${c.blocked && !readonly ? '<button class="btn btn-danger btn-sm" id="unblock">Desbloquear contato</button>' : ''}

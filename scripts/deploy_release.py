@@ -159,11 +159,13 @@ def migrate_whatsapp_follow_up(root, environment, release_id):
     sys.path.insert(0, str(root / "releases" / release_id))
     from app.db import Base, engine
     from app.documents import DocumentAsset, MessageDocument
+    from app.visit_goal import VisitGoal
     from app.whatsapp.follow_up import FollowUp, FollowUpChannel
 
     with engine.begin() as connection:
         Base.metadata.create_all(connection, tables=[
-            DocumentAsset.__table__, MessageDocument.__table__, FollowUpChannel.__table__, FollowUp.__table__
+            DocumentAsset.__table__, MessageDocument.__table__, FollowUpChannel.__table__,
+            FollowUp.__table__, VisitGoal.__table__
         ])
 
 

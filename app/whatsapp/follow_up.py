@@ -16,6 +16,7 @@ from ..reply_delivery import ReplyPart
 from ..spam import admission_lock
 from ..tenant_runtime import allows_role, enabled
 from ..usage import usage_scope
+from ..visit_goal import confirmed_conversations
 from .models import Channel, Chat, Outbox
 
 log = logging.getLogger(__name__)
@@ -54,7 +55,9 @@ def channel_enabled(db, tenant_id, conversation_id):
 
 
 def schedule(db, message, incoming_id, revision):
-    if incoming_id and channel_enabled(db, message.tenant_id, message.conversation_id):
+    if (incoming_id and channel_enabled(db, message.tenant_id, message.conversation_id)
+            and not confirmed_conversations(db, message.tenant_id,
+                conversation_id=message.conversation_id, incoming_id=incoming_id)):
         db.add(FollowUp(anchor_id=message.id, incoming_id=incoming_id, revision=revision))
 
 
@@ -95,6 +98,8 @@ def context_if_current(db, job, expected_latest, at):
     latest = db.scalar(recent.limit(1))
     latest_incoming = db.scalar(recent.where(Message.sender == "cliente").limit(1))
     if latest.id != expected_latest or not latest_incoming or latest_incoming.id != incoming.id:
+        return None
+    if confirmed_conversations(db, tid, conversation_id=cid, incoming_id=incoming.id):
         return None
     return anchor, recent
 

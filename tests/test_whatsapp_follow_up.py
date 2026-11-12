@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -61,6 +62,60 @@ class WhatsAppFollowUpTest(unittest.TestCase):
             model.assert_called_once()
             self.assertIn('"mensagem": "Oi"', model.call_args.args[0])
         self.assertEqual(client.client_messages(self.token)["messages"][-1]["content"], answer["reply"])
+
+    def test_confirmed_visit_stops_follow_up_until_customer_writes_again(self):
+        from types import SimpleNamespace
+
+        from app.admin import conversations
+        from app.models import Feature, FeatureCall
+        from app.visit_goal import VisitGoal
+
+        with Session.begin() as db:
+            db.add(Feature(tenant_id=self.tid, name="book_visit", description="", endpoint="", roles="cliente"))
+            db.flush()
+            db.add(VisitGoal(tenant_id=self.tid, feature="book_visit"))
+
+        def record_confirmation(status):
+            incoming_id = client.scoped_message_id(self.tid, self.cid)
+            self.assertIsNotNone(incoming_id)
+            with Session.begin() as db:
+                db.add(FeatureCall(tenant_id=self.tid, conversation_id=self.cid, message_id=incoming_id,
+                    feature="book_visit", parameters="{}", duration_ms="0",
+                    result=json.dumps({"data": {"ok": True, "booking": {"booking_id": "demo", "status": status}}})))
+
+        sent_at = datetime.now(timezone.utc)
+        with patch.object(bridge, "send", side_effect=["wamid.pending", "wamid.confirmed", "wamid.new"]), \
+             patch.object(follow_up, "now", return_value=sent_at):
+            with patch.object(client, "reply", side_effect=lambda *a, **kw: (
+                    record_confirmation("Pendente"), "Vou verificar a reserva.")[1]):
+                client.process_message(client.receive_message(self.token, client.TextInput(content="Quero visitar")))
+            self.assertTrue(bridge.deliver_one())
+            with Session() as db:
+                self.assertIsNotNone(db.scalar(select(follow_up.FollowUp)).due_at)
+            operator = SimpleNamespace(id="operator", tenant_id=self.tid, console_role="brevia")
+            self.assertFalse(conversations(operator)[0]["visit_confirmed"])
+
+            def confirm(*args, **kwargs):
+                record_confirmation("Confirmado")
+                return "Visita confirmada."
+
+            with patch.object(client, "reply", side_effect=confirm):
+                client.process_message(client.receive_message(self.token, client.TextInput(content="Pode confirmar")))
+            self.assertTrue(bridge.deliver_one())
+            self.assertTrue(conversations(operator)[0]["visit_confirmed"])
+            other_operator = SimpleNamespace(id="operator", tenant_id=self.other_tid, console_role="brevia")
+            self.assertFalse(conversations(other_operator)[0]["visit_confirmed"])
+
+            with patch.object(follow_up, "reply") as model:
+                follow_up.generate_due(clock=lambda: sent_at + timedelta(minutes=5), generate=model)
+                follow_up.generate_due(clock=lambda: sent_at + timedelta(minutes=5), generate=model)
+                model.assert_not_called()
+
+            self.answer("Qual o endereço?", "Segue o endereço da visita.")
+            self.assertTrue(bridge.deliver_one())
+        with patch.object(follow_up, "reply", return_value={"action": "none", "reply": "Quer ajuda com a rota?"}) as model:
+            follow_up.generate_due(clock=lambda: sent_at + timedelta(minutes=5), generate=model)
+            model.assert_called_once()
 
     def test_incoming_after_generation_cancels_outbox_delivery(self):
         self.answer("Oi", "Olá, como posso ajudar?")

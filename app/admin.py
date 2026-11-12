@@ -12,6 +12,7 @@ from .whatsapp.models import Chat
 from .channels import channel_name
 from .tenant_runtime import assistant_name
 from .onboarding import profile_state
+from .visit_goal import confirmed_conversations
 from .role_instructions import RoleInstruction
 from .whatsapp.calling import lock_conversation, has_active_call
 from .whatsapp.calling_timeline import call_timeline, with_calls
@@ -45,6 +46,7 @@ def conversations(user=Depends(current_user)):
                       Conversation.created_at.desc(), Conversation.id.desc())
         )
         calls = call_timeline(db, user.tenant_id)
+        confirmed_visits = confirmed_conversations(db, user.tenant_id)
         result = []
         for c in rows:
             contact = db.get(Contact, c.contact_id)
@@ -55,6 +57,7 @@ def conversations(user=Depends(current_user)):
                 "id": c.id,
                 "contact_id": c.contact_id,
                 "profile": profile,
+                "visit_confirmed": c.id in confirmed_visits,
                 "status": c.status,
                 "can_reply": bool(state and state.operator_id == user.id and user.console_role != 'leitura'),
                 "name": _conversation_name(contact.name, channel, profile),
