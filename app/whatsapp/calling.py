@@ -163,8 +163,11 @@ def _reserve(db, *, tenant_id, conversation_id, operator_id, idempotency_key, ki
             raise HTTPException(409, 'Chave idempotente já utilizada com outros dados')
         existing.is_new = False
         return existing
-    if kind == 'call' and permission_state(db, tenant_id=tenant_id, phone_number_id=chat.phone_number_id, recipient=chat.sender) != 'granted':
+    granted = permission_state(db, tenant_id=tenant_id, phone_number_id=chat.phone_number_id, recipient=chat.sender) == 'granted'
+    if kind == 'call' and not granted:
         raise HTTPException(409, 'O cliente ainda não autorizou esta chamada')
+    if kind == 'permission' and granted:
+        raise HTTPException(409, 'O cliente já autorizou ligações')
     op = CallOperation(tenant_id=tenant_id, conversation_id=conversation_id, operator_id=operator_id,
         phone_number_id=chat.phone_number_id, recipient=chat.sender, kind=kind,
         idempotency_key=idempotency_key, arguments_hash=arguments_hash,

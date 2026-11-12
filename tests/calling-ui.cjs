@@ -26,7 +26,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
     window.RTCPeerConnection=class extends Peer{constructor(...args){super(...args);window.qaPeers.push(this);if(window.qaIceFailure)Object.defineProperty(this,'iceGatheringState',{get:()=> 'gathering'});}};
     navigator.mediaDevices.getUserMedia=async options=>{if(window.qaDenyMic)throw new DOMException('Denied fixture','NotAllowedError');const stream=await media(options);window.qaTracks.push(...stream.getTracks());return stream;};
   });
-  const convo={id:'conversation-demo',name:'Contato fictício',channel:'whatsapp',status:'humano',role:'cliente',profile:{},messages:[]};
+  const convo={id:'conversation-demo',name:'Nome não informado',contact_id:'contact-demo',channel:'whatsapp',status:'humano',role:'cliente',profile:{},messages:[]};
   await context.route('**/*',async route=>{
     const req=route.request(),url=new URL(req.url());
     if(url.origin!==base)return route.abort();
@@ -34,7 +34,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
     let data;
     if(url.pathname.includes('/calling')){
       if(req.method()==='POST'){assert.equal(req.headers().origin,base);posts.push({url:url.pathname,body:req.postDataJSON(),tab:req.headers()['x-calling-tab'],tenant:url.searchParams.get('tenant')});}
-      if(url.pathname.endsWith('/calling')){if(rootDelay)await new Promise(r=>setTimeout(r,rootDelay));data={enabled:available,can_call:available&&owner&&permission==='granted'&&!active,can_request_permission:available&&owner&&permission==='absent',block_reason:!available?'Chamadas indisponíveis neste canal.':!owner?'Assuma o atendimento para ligar.':null,permission:{state:permission,expires_at:null},active_call:active,history:[{id:'historical-demo',state:'ended',active:false,created_at:'2026-11-10T12:00:00Z',connected_at:null,ended_at:'2026-11-10T12:01:00Z',operator_name:'Operadora <teste>',error_code:null}]};}
+      if(url.pathname.endsWith('/calling')){if(rootDelay)await new Promise(r=>setTimeout(r,rootDelay));data={enabled:available,can_call:available&&owner&&permission==='granted'&&!active,can_request_permission:available&&owner&&['absent','granted'].includes(permission),block_reason:!available?'Chamadas indisponíveis neste canal.':!owner?'Assuma o atendimento para ligar.':null,permission:{state:permission,expires_at:null},active_call:active,history:[{id:'historical-demo',state:'ended',active:false,created_at:'2026-11-10T12:00:00Z',connected_at:null,ended_at:'2026-11-10T12:01:00Z',operator_name:'Operadora <teste>',error_code:null}]};}
       else if(url.pathname.endsWith('/permission')){permission='pending';data={id:'permission-demo',state:'sent',active:true,version:1};}
       else if(url.pathname.endsWith('/calls')){
         const offer=req.postDataJSON().sdp_offer;
@@ -58,7 +58,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
       else if(url.pathname.endsWith('/terminate')){call={...call,state:'ended',active:false,version:3};active=null;data=call;}
       else if(url.pathname.endsWith('/calls/call-demo'))data={...call,answer_sdp:answer};
       else throw Error('Unexpected calling URL '+url.pathname);
-    }else if(url.pathname==='/api/me')data={name:'Operadora teste',tenant:'Empresa fictícia',tenant_id:'tenant-demo',slug:'demo',role:'operador',lumi_enabled:true};
+    }else if(url.pathname==='/api/me')data={name:'Operadora teste',tenant:'Empresa fictícia',assistant_name:'Ana',tenant_id:'tenant-demo',slug:'demo',role:'operador',lumi_enabled:true};
     else if(url.pathname.endsWith('/conversations'))data=[convo];
     else if(url.pathname.endsWith('/settings'))data={};
     else if(url.pathname.endsWith('/role-instructions'))data=[{role:'cliente',label:'Cliente'}];
@@ -68,6 +68,18 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
   });
   try{
     await page.goto(base+'/admin?tenant=tenant-demo#conversas');
+    await page.getByRole('button',{name:'Devolver à Ana',exact:true}).waitFor();
+    assert.equal(await page.locator('.tenant .status').textContent(),'Ana ativa');
+    const search = page.getByRole('textbox',{name:'Buscar por nome ou ID'});
+    await search.fill('id-sem-correspondencia');
+    await page.getByText('Nenhuma conversa neste filtro.').waitFor();
+    await search.fill('#contact-demo');
+    await page.locator('.c-item').getByText('#contact-demo',{exact:true}).waitFor();
+    assert.equal(await page.locator('.c-item').getByText('Nome não informado',{exact:true}).count(),0);
+    await search.fill('');
+    await page.getByRole('button',{name:'Com atendente'}).click();
+    assert.equal(await page.getByRole('button',{name:'Com atendente'}).getAttribute('aria-pressed'),'true');
+    await page.getByRole('button',{name:'Todas',exact:true}).click();
     await page.getByText('Chamadas recentes',{exact:true}).click();await page.getByText('Operadora <teste>',{exact:false}).waitFor();assert.equal(await page.locator('.calling-history teste').count(),0);
     await page.getByRole('button',{name:'Pedir permissão',exact:true}).click({timeout:3000});
     await page.locator('#calling-controls').getByText('Aguardando permissão').waitFor();
@@ -78,10 +90,14 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
     owner=true;permission='granted';await page.getByRole('button',{name:'Ligar pelo WhatsApp',exact:true}).waitFor();
     const start=page.getByRole('button',{name:'Ligar pelo WhatsApp',exact:true});
     await page.waitForFunction(()=>document.querySelector('[data-calling="start"]')?.disabled===false);
+    assert(await page.getByRole('button',{name:'Pedir permissão',exact:true}).isDisabled());
+    convo.name='Isaque';
+    await page.locator('.c-item').getByText('Isaque',{exact:true}).waitFor();
     await page.evaluate(()=>{window.qaDenyMic=true;});await start.click();
     await page.getByRole('alert').filter({hasText:'Microfone bloqueado'}).waitFor();assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('calling-error')),true);assert.equal(posts.filter(p=>p.url.endsWith('/calls')).length,0);
     await page.evaluate(()=>{window.qaDenyMic=false;});await start.click();
     await page.locator('#calling-status').filter({hasText:'Chamando'}).waitFor();
+    assert.equal(await page.locator('#calling-slot #calling-name').textContent(),'Isaque');
     await page.waitForFunction(()=>window.qaPeers.at(-1)?.connectionState==='connected');
     assert.equal(await page.locator('#calling-status').textContent(),'Chamando','Transport connected alone must not claim customer accepted');
     call={...call,state:'accepted',version:2};active={...call};
@@ -91,7 +107,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
     const packetStats=await page.evaluate(async()=>{const reports=await window.qaPeers.at(-1).getStats();return [...reports.values()].filter(r=>r.type==='outbound-rtp'||r.type==='inbound-rtp').map(r=>({type:r.type,packets:r.packetsSent||r.packetsReceived}));});
     assert(packetStats.some(s=>s.packets>0));
     convo.messages.push({sender:'cliente',content:'Mensagem fictícia durante ligação'});await page.locator('.thread').getByText('Mensagem fictícia durante ligação',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.qaPeers.length),1);
-    await page.locator('.nav a[data-route="configuracoes"]').click();await page.locator('#calling-status').filter({hasText:'Em ligação'}).waitFor();assert.equal(await page.evaluate(()=>window.qaTracks.at(-1).readyState),'live');
+    await page.locator('.nav a[data-route="configuracoes"]').click();await page.locator('body > #calling-bar #calling-status').filter({hasText:'Em ligação'}).waitFor();assert.equal(await page.evaluate(()=>window.qaTracks.at(-1).readyState),'live');
     await page.locator('.nav a[data-route="conversas"]').click();await page.locator('#calling-controls').waitFor();
     fs.mkdirSync(out,{recursive:true});await page.screenshot({path:path.join(out,'desktop-connected.png'),fullPage:true,animations:'disabled'});
     await page.setViewportSize({width:390,height:844});await page.locator('.c-item').first().click();

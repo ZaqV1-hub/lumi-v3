@@ -19,6 +19,9 @@ const calling = (() => {
       return await response.json();
     } finally { clearTimeout(timer); }
   }
+  function canRequestPermission(ctx) {
+    return ctx.data?.permission?.state !== 'granted' && ctx.data?.can_request_permission && !ctx.busy && !ctx.permissionKey;
+  }
   function controls() {
     const el = document.querySelector('#calling-controls');
     if (!view || !el || el.dataset.conversation !== view.id) return;
@@ -32,7 +35,7 @@ const calling = (() => {
     if (active) description = session?.id === data.active_call.id ? 'Chamada em andamento na barra abaixo.' : 'Chamada em outra aba ou sessão. Aguarde a reconciliação antes de ligar.';
     el.className = 'calling-controls calling-' + state;
     const html = '<div class="calling-copy"><b>' + esc(permissionLabels[state] || permissionLabels.unknown) + '</b><span>' + esc(description) + '</span></div>' +
-      '<div class="calling-actions"><button class="btn btn-ghost btn-sm" data-calling="permission"' + (!data?.can_request_permission || view.busy || view.permissionKey ? ' disabled' : '') + '>Pedir permissão</button>' +
+      '<div class="calling-actions"><button class="btn btn-ghost btn-sm" data-calling="permission"' + (!canRequestPermission(view) ? ' disabled' : '') + '>Pedir permissão</button>' +
       '<button class="btn btn-primary btn-sm" data-calling="start"' + (!data?.can_call || view.busy || session ? ' disabled' : '') + '>Ligar pelo WhatsApp</button></div>' +
       '<p class="calling-error" role="alert" tabindex="-1"' + (view.error ? '' : ' hidden') + '>' + esc(view.error || '') + '</p>' + history(data?.history || []);
     if (el.callingMarkup !== html) {
@@ -47,7 +50,7 @@ const calling = (() => {
     el.querySelector('[data-calling="permission"]').onclick = () => askPermission(view);
     el.querySelector('[data-calling="start"]').onclick = () => start(view);
     const release = document.querySelector('#release');
-    if (release) {release.disabled = Boolean(active || (session && session.ctx.id === view.id)); release.title = release.disabled ? 'Encerre a chamada antes de devolver à Lumi.' : '';}
+    if (release) {release.disabled = Boolean(active || (session && session.ctx.id === view.id)); release.title = release.disabled ? 'Encerre a chamada antes de devolver à ' + assistantName() + '.' : '';}
   }
   function history(items) {
     if (!items.length) return '';
@@ -76,7 +79,7 @@ const calling = (() => {
     }
   }
   async function askPermission(ctx) {
-    if (ctx.busy || ctx.permissionKey || !ctx.data?.can_request_permission) return;
+    if (!canRequestPermission(ctx)) return;
     ctx.busy = true; ctx.error = ''; ctx.permissionKey = key(); permissionAttempts.set(endpoint(ctx), ctx.permissionKey); controls();
     try {
       const result = await request(ctx, '/permission', {idempotency_key:ctx.permissionKey});
@@ -110,6 +113,8 @@ const calling = (() => {
     if (connected && !s.connectedAt) s.connectedAt = Date.now();
     const status = bar.querySelector('#calling-status'), label = connected ? 'Em ligação' : callLabels[s.state] || 'Aguardando estado da chamada';
     if (status.textContent !== label) status.textContent = label;
+    bar.dataset.conversation = s.ctx.id;
+    placeBar();
     bar.querySelector('#calling-name').textContent = s.ctx.name;
     bar.querySelector('#calling-media').textContent = s.error || (s.muted ? 'Microfone silenciado' : s.peer?.connectionState === 'disconnected' ? 'Áudio desconectado' : 'Ligação de áudio pelo WhatsApp');
     const seconds = s.connectedAt ? Math.floor((Date.now() - s.connectedAt) / 1000) : 0;
@@ -240,18 +245,34 @@ const calling = (() => {
     catch {s.error = 'Encerramento ainda não confirmado. Aguardando reconciliação.';}
     finally {paint(s);}
   }
+  function parkBar() {
+    if (bar && bar.parentNode !== document.body) document.body.append(bar);
+  }
+  function placeBar() {
+    if (!bar || bar.hidden || !view || bar.dataset.conversation !== view.id) return;
+    const slot = document.querySelector('#calling-slot');
+    if (slot && bar.parentNode !== slot) slot.append(bar);
+  }
   function mount(conversation) {
     if ((session && session.ctx.tenant !== tenant()) || (bar && bar.dataset.tenant !== tenant())) dispose();
-    if (!conversation || conversation.channel !== 'whatsapp') {if (view) clearTimeout(view.timer); view = null; return;}
+    if (!conversation || conversation.channel !== 'whatsapp') {parkBar(); if (view) clearTimeout(view.timer); view = null; return;}
     if (view?.id !== conversation.id || view?.tenant !== tenant()) {
       if (view) clearTimeout(view.timer);
-      view = {id:conversation.id, name:conversation.name, tenant:tenant(), path:'/api/admin/conversations/'+encodeURIComponent(conversation.id)+'/calling'};
+      view = {id:conversation.id, tenant:tenant(), path:'/api/admin/conversations/'+encodeURIComponent(conversation.id)+'/calling'};
       view.permissionKey = permissionAttempts.get(endpoint(view));
       refresh(view);
     }
+    view.name = conversation.name === 'Nome não informado' && conversation.contact_id
+      ? '#' + conversation.contact_id : conversation.name;
+    if (session?.ctx.id === view.id && session.ctx.name !== view.name) {
+      session.ctx.name = view.name;
+      paint();
+    }
+    placeBar();
     controls();
   }
   function dispose() {
+    parkBar();
     if (view) clearTimeout(view.timer); view = null;
     const s = session;
     if (s) {
@@ -262,7 +283,7 @@ const calling = (() => {
     document.body.classList.remove('calling-visible');
   }
   window.addEventListener('pagehide', dispose);
-  return {mount, dispose};
+  return {mount, dispose, parkBar};
 })();
 function renderCallingControls(conversation) {
   return conversation.channel === 'whatsapp' ? '<section id="calling-controls" class="calling-controls" aria-label="Ligação pelo WhatsApp" data-conversation="'+esc(conversation.id)+'">Consultando permissão de chamada…</section>' : '';

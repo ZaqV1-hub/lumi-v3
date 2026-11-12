@@ -50,8 +50,3 @@ function objectiveForm(field = {}) {
     await drawOnboarding();
   };
 }
-function renderProfile(profile) {
-  if (!profile?.enabled) return "";
-  return `<details style="padding:14px;border-bottom:1px solid var(--line)"><summary>Perfil do cliente · ${profile.completed ? "Onboarding concluído" : "Onboarding em andamento"}</summary>
-    ${profile.fields.map(f => `<p><strong>${esc(f.title)}</strong>: ${esc(f.value || "Ainda não informado")}</p>`).join("")}</details>`;
-}

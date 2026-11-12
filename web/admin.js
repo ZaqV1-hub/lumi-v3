@@ -240,7 +240,7 @@ async function boot() {
   $("#login").hidden = true;
   $("#usageNav").hidden=me.role!=="brevia";
   $(".tenant b").textContent = me.tenant;
-  $(".tenant .status").textContent=me.lumi_enabled?"Lumi ativa":"Lumi desativada";
+  $(".tenant .status").textContent=assistantName() + (me.lumi_enabled ? " ativa" : " desativada");
   $(".tenant .status").classList.toggle("off",!me.lumi_enabled);
   $(".tenant .av").textContent = me.tenant.slice(0, 2).toUpperCase();
   $("#userBtn .name").textContent = me.name;
@@ -270,7 +270,7 @@ function route() {
     {
       dashboard: "Dashboard",
       conversas: "Conversas",
-      configuracoes: "Configurações da Lumi",
+      configuracoes: "Configurações da " + assistantName(),
       consumo: "Consumo e velocidade",
     }[p] || "Dashboard";
   $("#pgSub").textContent =
@@ -284,9 +284,10 @@ function route() {
   else if (p === "conversas") renderConvos();
   else renderDash();
 }
+const assistantName = () => me?.assistant_name || 'Lumi';
 const statusLabel = (s) =>
   ({
-    lumi: "Lumi ativa",
+    lumi: assistantName() + " ativa",
     aguardando: "Pediu atendimento humano",
     humano: "Atendimento humano",
   })[s];
@@ -307,15 +308,8 @@ async function refresh(redraw = true) {
     updateHandoverCount();
     lastRows = JSON.stringify(data);
     if (redraw && changed && !["configuracoes","consumo"].includes(page())) {
-      if (page() === "conversas") {
-        const draftText = $("#humanText")?.value || "";
-        const focus = document.activeElement?.id;
-        renderConvos();
-        if ($("#humanText")) {
-          $("#humanText").value = draftText;
-          if (focus === "humanText") $("#humanText").focus();
-        }
-      } else renderDash();
+      if (page() === "conversas") renderConvos();
+      else renderDash();
     }
   } catch (e) {
     toast(e.message);
@@ -323,165 +317,4 @@ async function refresh(redraw = true) {
     refreshing = false;
   }
 }
-function renderConvos() {
-  const text = $("#humanText")?.value || "";
-  const waiting = convos.filter((c) => c.status === "aguardando");
-  $("#content").innerHTML =
-    '<div class="wrap"><div class="simulation-links">' + simulationRoles.map(r=>'<a class="btn btn-ghost" href="/chat/'+encodeURIComponent(me.slug)+'?tenant='+encodeURIComponent(me.tenant_id)+'&simulation='+encodeURIComponent(r.role)+'" target="_blank" rel="noopener">Simular '+esc(r.label)+'</a>').join('')+'</div>' +
-    (waiting.length
-      ? '<div class="notice-live" role="status">' +
-        waiting
-          .map((c) => esc(c.name) + " pediu atendimento humano.")
-          .join(" ") +
-        "</div>"
-      : "") +
-    '<div class="filters"><div class="search">' +
-    searchIco +
-    '<input class="input" id="cq" placeholder="Buscar por nome ou ID" aria-label="Buscar por nome ou ID" value="' +
-    esc(ui.q) +
-    '"></div></div><div id="cbody"></div></div>';
-  $("#cq").oninput = (e) => {
-    ui.q = e.target.value;
-    drawConvoBody();
-  };
-  drawConvoBody();
-  if ($("#humanText")) $("#humanText").value = text;
-}
-function contactLabel(c) {
-  const name = c.name === "Nome não informado" && c.contact_id ? "" : '<b>' + esc(c.name) + '</b>';
-  const id = c.contact_id ? '<span class="contact-id" aria-label="ID do cliente ' + esc(c.contact_id) + '">#' + esc(c.contact_id) + '</span>' : '';
-  return '<span class="contact-label">' + name + id + '</span>';
-}
-
-function drawConvoBody() {
-  const selectedStatus = { 'Lumi ativa': 'lumi', 'Aguardando atendimento': 'aguardando', 'Atendimento humano': 'humano' }[ui.tp];
-  const query = ui.q.trim().toLowerCase();
-  const idQuery = query.replace(/^#\s*/, '');
-  const list = convos.filter((c) =>
-    (!selectedStatus || c.status === selectedStatus) &&
-    (c.name.toLowerCase().includes(query) ||
-      (idQuery && [c.contact_id, c.id].some(id => id?.toLowerCase().includes(idQuery)))),
-  );
-  if (!list.some((c) => c.id === ui.conv)) ui.conv = list[0]?.id || "";
-  const c = list.find((c) => c.id === ui.conv);
-  $("#cbody").innerHTML =
-    '<section class="card convo ' +
-    (ui.mobileDetail && c ? "show-detail" : "") +
-    '"><div class="c-list"><div class="count">' +
-    list.length +
-    ' atendimentos</div><div class="c-items">' +
-    list
-      .map(
-        (c) =>
-          '<button class="c-item" data-id="' +
-          c.id +
-          '" aria-current="' +
-          (c.id === ui.conv) +
-          '"><span class="top"><span class="pill wa">' + (c.channel === 'whatsapp' ? 'WhatsApp' : c.channel === 'instagram' ? 'Instagram' : c.channel === 'instagram_comment' ? 'Comentário Instagram' : 'Simulador') + '</span></span>' +
-          contactLabel(c) +
-          '<span class="last">' +
-          esc(c.messages.at(-1)?.content || "Conversa iniciada") +
-          '</span><span class="tags"><span class="pill topic">' +
-          esc(c.blocked ? "Bloqueado por spam" : statusLabel(c.status)) +
-          "</span></span></button>",
-      )
-      .join("") +
-    '</div></div><div class="c-detail">' +
-    (c
-      ? detail(c)
-      : '<div class="empty">Nenhuma conversa ainda. Abra o simulador para começar.</div>') +
-    "</div></section>";
-  document.querySelectorAll(".c-item").forEach(
-    (b) =>
-      (b.onclick = () => {
-        ui.conv = b.dataset.id;
-        ui.mobileDetail = true;
-        drawConvoBody();
-      }),
-  );
-  mountCallingControls(c);
-  if (!c) return;
-  $("#contactRole").onchange = async (e) => {
-    await api("/api/admin/conversations/" + c.id + "/role", "PUT", {role: e.target.value});
-    await refresh();
-    toast("Papel do contato atualizado.");
-  };
-  $(".back").onclick = () => {
-    ui.mobileDetail = false;
-    drawConvoBody();
-  };
-  $("#take")?.addEventListener("click", async () => {
-    await api("/api/admin/conversations/" + c.id + "/claim", "POST");
-    await refresh();
-  });
-  $("#release")?.addEventListener("click", async () => {
-    await api("/api/admin/conversations/" + c.id + "/release", "POST");
-    await refresh();
-  });
-  $("#unblock")?.addEventListener("click", async () => {
-    await api("/api/admin/conversations/" + c.id + "/unblock", "POST");
-    await refresh();
-  });
-  $("#humanForm")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const input = $("#humanText");
-    await api("/api/admin/conversations/" + c.id + "/messages", "POST", {
-      content: input.value,
-    });
-    input.value = "";
-    await refresh();
-  });
-  const thread = $(".thread");
-  if (thread) thread.scrollTop = thread.scrollHeight;
-}
-function detail(c) {
-  return (
-    '<div class="d-head"><button class="btn btn-ghost btn-sm back">Voltar aos atendimentos</button><div class="who"><div><h2>' +
-    contactLabel(c) +
-    '</h2><div class="ph">' +
-    esc(statusLabel(c.status)) +
-    '</div></div></div><div class="handover-actions">' +
-    (c.status === "humano"
-      ? '<button class="btn btn-ghost btn-sm" id="release">Sair e devolver à Lumi</button>'
-      : '<button class="btn btn-primary btn-sm" id="take">Assumir atendimento</button>') +
-    (c.blocked
-      ? '<button class="btn btn-danger btn-sm" id="unblock">Desbloquear contato</button>'
-      : "") +
-    '</div></div>' + renderCallingControls(c) + '<div class="contact-role"><label for="contactRole">Papel do contato</label><select class="input" id="contactRole">' +
-    contactRoles.filter(r=>r.role!=='administrador'||me.role==='brevia').map(r => '<option value="' + esc(r.role) + '"' + ((c.role || "cliente") === r.role ? ' selected' : '') + '>' + esc(r.label) + '</option>').join("") +
-    '</select></div>' + renderProfile(c.profile) + '<div class="thread">' +
-    c.messages
-      .map(
-        (m) =>
-          '<div class="msg ' +
-          (m.sender === "cliente"
-            ? "in"
-            : m.sender === "sistema"
-              ? "system"
-              : "out") +
-          '">' +
-          (m.name ? "<strong>" + esc(m.name) + "</strong>" : "") +
-          esc(m.content) +
-          (m.attachment_kind === 'image' ? '<a href="'+esc(adminPath(m.attachment_url))+'" target="_blank" rel="noopener"><img src="'+esc(adminPath(m.attachment_url))+'" alt="Imagem enviada pelo cliente"></a>' : m.attachment_kind === 'audio' ? '<audio controls preload="metadata" src="'+esc(adminPath(m.attachment_url))+'" style="display:block;max-width:100%;margin-top:8px"></audio>' : m.attachment_kind === 'document' ? '<a href="'+esc(adminPath(m.attachment_url))+'">'+esc(m.attachment_name)+'</a>' : '') +
-          (m.image_id
-            ? '<a href="'+esc(adminPath('/api/admin/images/'+m.image_id+'/file'))+'" target="_blank"><img src="'+esc(adminPath('/api/admin/images/'+m.image_id+'/file'))+'" alt="Imagem enviada pela Lumi"></a>'
-            : "") +
-          "<time>" +
-          esc(
-            m.sender === "lumi"
-              ? "Lumi"
-              : m.sender === "humano"
-                ? m.name || "Operador"
-                : "",
-          ) +
-          (m.delivery ? ' · ' + esc({pending:'Envio pendente',sending:'Enviando ao WhatsApp',sent:'Aceito pela Meta',delivered:'Entregue no WhatsApp',read:'Lido no WhatsApp',failed:'Falha no envio ao WhatsApp'}[m.delivery] || m.delivery) : '') + (m.delivery_error ? '<br>' + esc(m.delivery_error) : '') + "</time></div>",
-      )
-      .join("") +
-    "</div>" +
-    (c.status === "humano"
-      ? '<form id="humanForm" class="reply-box"><input class="input" id="humanText" required placeholder="Sua resposta ao cliente"><button class="btn btn-primary">Enviar</button></form>'
-      : "")
-  );
-}
-
 window.addEventListener("DOMContentLoaded", () => { boot(); setInterval(() => refresh(), 1500); });

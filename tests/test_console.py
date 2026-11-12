@@ -46,6 +46,15 @@ class ConsoleTest(unittest.TestCase):
         self.assertEqual(self.operator.get('/api/admin/settings',params={'tenant':'missing'}).status_code,404)
         with Session() as db:self.assertEqual(db.get(User,self.operator_id).tenant_id,self.breve)
 
+    def test_assistant_display_name_is_scoped_to_the_selected_tenant(self):
+        with Session.begin() as db:
+            db.get(Tenant, self.breve).identity = "Nome da assistente: Ana\nIdentidade de teste."
+        self.assertEqual(self.operator.get('/api/me', params={'tenant':self.breve}).json()['assistant_name'], 'Ana')
+        self.assertEqual(self.operator.get('/api/me', params={'tenant':self.rincao}).json()['assistant_name'], 'Lumi')
+        self.assertEqual(self.customer.get('/api/me').json()['assistant_name'], 'Lumi')
+        self.assertIn('<h1 id="assistantName">Ana</h1>', self.operator.get('/chat/breve').text)
+        self.assertIn('<h1 id="assistantName">Lumi</h1>', self.customer.get('/chat/rincao').text)
+
     def test_temporary_password_requires_change_and_is_not_retrievable(self):
         access=self.create_access();temporary=access['temporary_password']
         self.assertNotIn(temporary,self.operator.get('/api/console/users').text)

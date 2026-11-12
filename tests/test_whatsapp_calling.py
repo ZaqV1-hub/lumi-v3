@@ -252,6 +252,8 @@ class CallingStateTest(unittest.TestCase):
     def test_permission_reservation_uncertain_is_not_repeated(self):
         args = dict(tenant_id='tenant', conversation_id='conversation', operator_id='operator', idempotency_key='permission')
         with self.session.begin() as db:
+            self.calling.update_permission(db, tenant_id='tenant', phone_number_id='channel',
+                recipient='5511000000001', state='absent', observed_at=self.calling.now())
             op = self.calling.reserve_permission(db, **args)
             self.calling.update_operation(db, op, state='uncertain')
         with self.session.begin() as db:

@@ -137,11 +137,12 @@ def home(request: Request):
 @app.get("/chat/{slug}")
 def client_page(slug: str,request: Request):
     from .access import current_user
-    if os.getenv("LUMI_PRIVATE_SIMULATOR", "false").lower() in {"true", "1"}:
-        from sqlalchemy import select
-        from .models import Tenant
-        with Session() as db:
-            tenant = db.scalar(select(Tenant).where(Tenant.slug == slug))
+    from .models import Tenant
+    from .tenant_runtime import assistant_name
+    from sqlalchemy import select
+    with Session() as db:
+        tenant = db.scalar(select(Tenant).where(Tenant.slug == slug))
+        if os.getenv("LUMI_PRIVATE_SIMULATOR", "false").lower() in {"true", "1"}:
             if not tenant:
                 raise HTTPException(404, "Empresa não encontrada")
             try:
@@ -150,15 +151,15 @@ def client_page(slug: str,request: Request):
                 if exc.status_code == 401:
                     return RedirectResponse("/admin", status_code=307)
                 raise
+        name = assistant_name(tenant) if tenant else "Lumi"
     back=False
     if request.query_params.get("tenant"):
         user=current_user(request)
         if user.console_role=="brevia":
-            from .models import Tenant
             with Session() as db:
                 if db.get(Tenant,user.tenant_id).slug!=slug:raise HTTPException(403,"Empresa diferente da selecionada")
             back=True
-    return versioned_page("client.html",back=back)
+    return versioned_page("client.html", back=back, assistant=name)
 
 
 @app.get("/console")
@@ -166,9 +167,12 @@ def console_page():
     return RedirectResponse("/admin",status_code=307)
 
 
-def versioned_page(filename,back=False,readonly=False,authenticated=False):
+def versioned_page(filename,back=False,readonly=False,authenticated=False,assistant=None):
     import re
+    from html import escape
     html = (ROOT / "web" / filename).read_text(encoding="utf-8-sig")
+    if assistant:
+        html = html.replace("{{assistant}}", escape(assistant))
     if authenticated:html=html.replace('<section id="login">','<section id="login" hidden>',1)
     if back:
         html=html.replace('<body>','<body class="operator-workspace"><header id="operatorBar"><a href="/admin#/tenants">Voltar ao console</a></header>',1)

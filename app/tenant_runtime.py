@@ -1,4 +1,5 @@
 """Estado operacional no banco, independente das instruções do modelo."""
+import re
 from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from .db import Base
@@ -15,6 +16,11 @@ class TenantChatPolicy(Base):
     __tablename__ = "tenant_chat_policies"
     tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), primary_key=True)
     allowed_roles: Mapped[str] = mapped_column(Text)
+
+
+def assistant_name(tenant):
+    match = re.search(r"(?mi)^Nome da assistente:[ \t]*([^\r\n]{1,60})[ \t]*$", tenant.identity or "")
+    return (match.group(1).strip() if match else "") or "Lumi"
 
 
 def allows_role(db, tid, role):

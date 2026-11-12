@@ -164,6 +164,18 @@ class CallingAdminTest(unittest.TestCase):
             self.assertFalse(self.http.get(self.path).json()['can_call'])
             connect.assert_not_called()
 
+    def test_granted_permission_disables_requests_even_if_graph_allows_them(self):
+        self.enable()
+        with patch('app.whatsapp.calling_graph.get_permission', return_value={**GRANTED, 'can_request': True}), \
+             patch('app.whatsapp.calling_graph.request_permission') as send:
+            status = self.http.get(self.path).json()
+            self.assertEqual(status['permission']['state'], 'granted')
+            self.assertTrue(status['can_call'])
+            self.assertFalse(status['can_request_permission'])
+            response = self.http.post(self.path + '/permission', json={'idempotency_key': 'consent'}, headers=self.headers)
+            self.assertEqual(response.status_code, 409)
+            send.assert_not_called()
+
     def test_permission_request_is_deduplicated_and_outside_window_is_blocked(self):
         from app.db import Session
         from app.models import Message, now

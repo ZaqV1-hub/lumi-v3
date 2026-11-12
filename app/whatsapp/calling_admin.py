@@ -99,6 +99,7 @@ def permission_snapshot(cid, request, user):
             expires_at=result['expires_at'], observed_at=observed_at)
         result['state'] = calling.permission_state(db, tenant_id=user.tenant_id, phone_number_id=phone, recipient=recipient)
         result['can_call'] = result['can_call'] and result['state'] == 'granted'
+        result['can_request'] = result['can_request'] and result['state'] != 'granted'
     return result
 
 
@@ -169,6 +170,8 @@ def request_permission(cid: str, data: OperationInput, request: Request, respons
                 raise HTTPException(409, 'Chave idempotente já utilizada')
             return summary(existing)
     permission = permission_snapshot(cid, request, user)
+    if permission['state'] == 'granted':
+        raise HTTPException(409, 'O cliente já autorizou ligações')
     if not permission['can_request']:
         raise HTTPException(409, 'A Meta não permite solicitar permissão neste momento')
     with Session.begin() as db:

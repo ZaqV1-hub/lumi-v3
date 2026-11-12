@@ -10,6 +10,7 @@ from .media_models import TenantPreferences, ContactGate
 from .spam import admission_lock, control
 from .whatsapp.models import Chat
 from .channels import channel_name
+from .tenant_runtime import assistant_name
 from .onboarding import profile_state
 from .role_instructions import RoleInstruction
 from .whatsapp.calling import lock_conversation, has_active_call
@@ -115,7 +116,7 @@ def release(cid: str, user=Depends(current_user)):
     with admission_lock, Session.begin() as db:
         c = lock_conversation(db, user.tenant_id, cid)
         if has_active_call(db, tenant_id=user.tenant_id, conversation_id=cid):
-            raise HTTPException(409, "Encerre a ligação e aguarde a confirmação antes de devolver à Lumi")
+            raise HTTPException(409, f"Encerre a ligação e aguarde a confirmação antes de devolver à {assistant_name(db.get(Tenant, user.tenant_id))}")
         state = control(db, cid)
         if state.operator_id and state.operator_id != user.id:
             raise HTTPException(
@@ -127,7 +128,7 @@ def release(cid: str, user=Depends(current_user)):
                     tenant_id=user.tenant_id,
                     conversation_id=cid,
                     sender="sistema",
-                    content=f"{user.name} saiu da conversa. A Lumi voltou ao atendimento.",
+                    content=f"{user.name} saiu da conversa. A {assistant_name(db.get(Tenant, user.tenant_id))} voltou ao atendimento.",
                 )
             )
             c.status = "lumi"

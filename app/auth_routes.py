@@ -7,7 +7,7 @@ from .access import authenticated_user, current_user, password_hash
 from .console_models import ConsoleAccount
 from .models import now
 from pydantic import BaseModel, Field
-from .tenant_runtime import enabled
+from .tenant_runtime import assistant_name, enabled
 from .db import Session
 from .models import User, LoginSession, Tenant
 from .schemas import Login
@@ -62,7 +62,7 @@ def me(request: Request, user=Depends(authenticated_user)):
     with Session() as db:
         tenant = db.get(Tenant, user.tenant_id)
         return {"name": user.name, "tenant": tenant.name, "tenant_id":tenant.id,
-                "slug": tenant.slug, "role": user.console_role,
+                "slug": tenant.slug, "role": user.console_role, "assistant_name": assistant_name(tenant),
                 "lumi_enabled":enabled(db,tenant.id),
                 "must_change_password":user.must_change_password}
 
