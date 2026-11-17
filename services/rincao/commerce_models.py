@@ -17,7 +17,7 @@ def cpf_digits(value):
 class Cart(BaseModel):
     model_config = ConfigDict(extra="forbid")
     visit_date: date
-    ticket_type: str = Field(pattern="^(padrao|promo)$")
+    ticket_type: str = Field(default="auto", pattern="^(auto|padrao|promo)$")
     adults: int = Field(ge=0, le=100)
     children: int = Field(ge=0, le=100)
     exempt: int = Field(ge=0, le=100)

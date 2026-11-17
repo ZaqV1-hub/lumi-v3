@@ -9,7 +9,8 @@ CONTRACTS.extend([
      "path": "/commerce/quote", "roles": ROLES, "parameters": {
         "type": "object", "properties": {
             "visit_date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
-            "ticket_type": {"type": "string", "enum": ["padrao", "promo"]},
+            "ticket_type": {"type": "string", "enum": ["auto", "padrao", "promo"],
+                "description": "Use auto quando só houver data e quantidades. O serviço confere o tipo na agenda; use padrao ou promo se o cliente escolheu entre os tipos disponíveis."},
             **{key: {"type": "integer", "minimum": 0, "maximum": 100} for key in ["adults", "children", "exempt"]}},
         "required": ["visit_date", "ticket_type", "adults", "children", "exempt"], "additionalProperties": False}},
     {"name": "criar_compra_ingressos", "description": "Preparar compra escolhida explicitamente após cotação: quote_id, nome e CPF válido. Somente no canal WhatsApp o telefone vem automaticamente; no Instagram e simulador peça o WhatsApp com DDD se ainda não foi informado pelo comprador. Não deduza telefone de nome ou identificador do Instagram. Se houver dados_invalidos, peça novamente somente o campo rejeitado sem alterar os demais dados ou escolhas. O preço vem do sistema; registra pedido pendente pelo CPF e devolve link Cielo. Não afirme que está pago nem gere ingressos pelo chat. Se o checkout estiver indisponível, explique e não invente link.",

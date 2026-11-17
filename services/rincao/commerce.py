@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from .config import required
 from .commerce_store import connect, load, unpack
 from .commerce_upstream import request
+from .agenda import query_agenda
 from . import cielo_checkout
 
 
@@ -26,8 +27,20 @@ def public_quote(quote_id, quote):
 def quote_cart(tenant_id, conversation_id, cart, context):
     if not 0 < cart.adults + cart.children + cart.exempt <= 100:
         raise ValueError("quantidade_invalida")
+    ticket_type = cart.ticket_type
+    if ticket_type == "auto":
+        agenda = query_agenda(cart.visit_date, cart.visit_date)
+        open_types = {
+            {"padrão": "padrao", "promocional": "promo"}[item["type"]]
+            for item in agenda["items"] if item["status"] == "aberta"
+        }
+        if not open_types:
+            return {"ok": False, "error": "ingressos_indisponiveis", "reason": "agenda_unavailable"}
+        if len(open_types) > 1:
+            return {"ok": False, "error": "tipo_de_ingresso_pendente", "available_ticket_types": sorted(open_types)}
+        ticket_type = open_types.pop()
     items = [{"sku": category, "title": label, "quantity": count, "unitPrice": 0,
-        "visitDate": cart.visit_date.isoformat(), "ticketType": cart.ticket_type, "ticketCategory": category}
+        "visitDate": cart.visit_date.isoformat(), "ticketType": ticket_type, "ticketCategory": category}
         for category, label, count in [("adult", "Adulto", cart.adults), ("child", "Infantil", cart.children), ("exempt", "Isento", cart.exempt)] if count]
     result = request("quote", {"tenant_id": required("RINCAO_COMMERCE_TENANT_ID"),
         "product_type": "day_use", "currency": "BRL", "external_reference": "lumi-v3-quote", "items": items})

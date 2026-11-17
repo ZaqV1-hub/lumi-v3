@@ -16,6 +16,11 @@ já iniciados. A configuração não habilita compras escolares.
 
 ## Fluxo
 
+Na cotação com `ticket_type=auto`, o serviço consulta a agenda do dia e usa
+o tipo disponível. Se houver dois tipos abertos, a ferramenta retorna as
+opções para a pessoa escolher. Produção precisa atualizar o contrato da
+ferramenta após publicar o serviço que aceita `auto`.
+
 O cliente escolhe data e quantidades. A ferramenta cotar_ingressos consulta o catálogo de homologação e retorna preço, disponibilidade, total e uma cotação identificada. Não precisa de CPF para cotar. Depois da escolha, a Lumi coleta nome e CPF válido; no WhatsApp o telefone vem do canal, no simulador é informado pela pessoa. A personalidade continua orientando as mensagens.
 
 A ferramenta criar_compra_ingressos revalida o preço, vincula a compra pendente ao CPF e cria uma URL da nossa própria página. Criar o link não cria uma transação financeira na Cielo. O cliente abre a página HTTPS e escolhe Pix ou cartão. O checkout usa a API E-commerce Cielo com MerchantId/MerchantKey, sem depender dos produtos Checkout hospedado ou Link de Pagamento da Cielo.

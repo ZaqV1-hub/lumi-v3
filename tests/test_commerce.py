@@ -70,6 +70,27 @@ class CommerceTest(unittest.TestCase):
             load_config()
             self.assertEqual(os.environ['RINCAO_CHECKOUT_PUBLIC_URL'], 'https://current.test')
 
+    def test_auto_quote_uses_the_only_open_ticket_type(self):
+        auto = self.cart.model_copy(update={"ticket_type": "auto"})
+        agenda = {"items": [
+            {"type": "padrão", "status": "aberta"},
+            {"type": "promocional", "status": "fechada"},
+        ]}
+        with patch.object(commerce, "query_agenda", return_value=agenda) as lookup, \
+                patch.object(commerce, "request", return_value={"ok": True, "quote": copy.deepcopy(QUOTE)}) as rpc:
+            result = commerce.quote_cart("tenant", "conversation", auto, self.context)
+        self.assertTrue(result["ok"])
+        lookup.assert_called_once_with(auto.visit_date, auto.visit_date)
+        self.assertEqual(rpc.call_args.args[1]["items"][0]["ticketType"], "padrao")
+
+    def test_auto_quote_does_not_pick_between_two_open_ticket_types(self):
+        auto = self.cart.model_copy(update={"ticket_type": "auto"})
+        agenda = {"items": [{"type": kind, "status": "aberta"} for kind in ("padrão", "promocional")]}
+        with patch.object(commerce, "query_agenda", return_value=agenda), patch.object(commerce, "request") as rpc:
+            result = commerce.quote_cart("tenant", "conversation", auto, self.context)
+        self.assertEqual(result["available_ticket_types"], ["padrao", "promo"])
+        rpc.assert_not_called()
+
     def test_pending_link_idempotent_and_no_price_from_model(self):
         q = self.quote()
         first, upstream, gateway = self.purchase(q["quote_id"])
