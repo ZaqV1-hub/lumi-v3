@@ -1,10 +1,38 @@
 import os
+from pathlib import Path
+import shutil
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch, Mock
 from services.rincao.commerce_upstream import request
 
 
 class CommerceTransportTest(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("node"), "Node não instalado")
+    def test_production_transport_requires_the_explicit_database(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            modules = root / "node_modules"
+            modules.mkdir()
+            (modules / "dotenv.js").write_text(
+                "exports.config = () => ({parsed: {"
+                "POSTGRES_SISTEMA_DB: 'isolated_old', "
+                "RINCAO_TICKET_API_USE_TEST_DB: 'false'}});",
+                encoding="utf-8",
+            )
+            env = {
+                "RINCAO_COMMERCE_TRANSPORT": "local",
+                "RINCAO_COMMERCE_REMOTE_ROOT": directory,
+                "RINCAO_COMMERCE_REMOTE_DEPENDENCIES": directory,
+                "RINCAO_COMMERCE_REMOTE_BUILD": directory,
+                "RINCAO_COMMERCE_MODE": "production",
+                "RINCAO_COMMERCE_RPC_ENV": str(root / "private.env"),
+                "RINCAO_COMMERCE_DATABASE_NAME": "isolated_expected",
+            }
+            with patch.dict(os.environ, env):
+                with self.assertRaisesRegex(RuntimeError, "^production_database_mismatch$"):
+                    request("approved", {})
+
     def test_local_transport_needs_no_ssh_key_and_preserves_test_guard(self):
         env = {"RINCAO_COMMERCE_TRANSPORT":"local", "RINCAO_COMMERCE_REMOTE_ROOT":"C:/fake/hml",
                "RINCAO_COMMERCE_REMOTE_DEPENDENCIES":"C:/fake/dependencies",

@@ -1,11 +1,23 @@
-// Adaptador externo: contratos já instalados no sistema de homologação.
+// Executa os contratos do rincao-dados no ambiente explicitamente configurado.
 const root = packet.root;
 process.env.NODE_PATH = packet.dependencies + '/node_modules';
 require('node:module').Module._initPaths();
-require(root + '/node_modules/dotenv').config({path: root + '/.env', quiet: true});
-const env = process.env;
-if (!/_test$/i.test(env.POSTGRES_SISTEMA_DB || '') || env.RINCAO_TICKET_API_USE_TEST_DB !== 'true') {
-  console.log(JSON.stringify({rpc_error: 'test_database_required'}));
+const dotenv = require(root + '/node_modules/dotenv');
+const mode = process.env.RINCAO_COMMERCE_MODE || 'test';
+const production = mode === 'production';
+const productionEnv = process.env.RINCAO_COMMERCE_RPC_ENV;
+if (!production) dotenv.config({path: root + '/.env', quiet: true});
+const env = production
+  ? productionEnv && dotenv.config({path: productionEnv, processEnv: {}, quiet: true}).parsed
+  : process.env;
+const database = env?.POSTGRES_SISTEMA_DB || '';
+const testDatabase = /_test$/i.test(database);
+const allowedDatabase = production
+  ? database && !testDatabase && database === process.env.RINCAO_COMMERCE_DATABASE_NAME
+    && env.RINCAO_TICKET_API_USE_TEST_DB === 'false'
+  : mode === 'test' && testDatabase && env.RINCAO_TICKET_API_USE_TEST_DB === 'true';
+if (!allowedDatabase) {
+  console.log(JSON.stringify({rpc_error: production ? 'production_database_mismatch' : 'test_database_required'}));
   process.exit(0);
 }
 const {Pool} = require(root + '/node_modules/pg');
@@ -29,6 +41,6 @@ const pool = new Pool({host: env.POSTGRES_SISTEMA_HOST, port: Number(env.POSTGRE
     else throw Error('invalid_operation');
     console.log(JSON.stringify(result));
   } catch (error) {
-    console.log(JSON.stringify({rpc_error: error.code || 'commerce_contract_rejected', diagnostic: String(error.message).slice(0, 1500)}));
+    console.log(JSON.stringify({rpc_error: error.code || 'commerce_contract_rejected'}));
   } finally { await pool.end(); }
 })();

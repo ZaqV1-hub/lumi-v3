@@ -1,5 +1,19 @@
 # Compra de ingressos pela Lumi — teste local
 
+## Separação do serviço de produção
+
+O adaptador mantém o banco de teste por padrão. A instalação de produção precisa
+de `RINCAO_COMMERCE_MODE=production`, `RINCAO_COMMERCE_DATABASE_NAME` com o nome
+esperado e `RINCAO_COMMERCE_RPC_ENV` apontando para um arquivo privado exclusivo
+do escritor. Nesse arquivo, `POSTGRES_SISTEMA_DB` deve coincidir com o nome
+esperado e `RINCAO_TICKET_API_USE_TEST_DB` deve ser `false`. A instalação usa
+seu próprio banco de checkout e o build revisado do rincao-dados.
+
+Antes de habilitar as ferramentas, confirme o banco e a cotação sem escrita,
+as rotas privadas e a URL pública do checkout. Para retornar, desabilite as
+ferramentas de novas compras e preserve o checkout e a reconciliação dos pedidos
+já iniciados. A configuração não habilita compras escolares.
+
 ## Fluxo
 
 O cliente escolhe data e quantidades. A ferramenta cotar_ingressos consulta o catálogo de homologação e retorna preço, disponibilidade, total e uma cotação identificada. Não precisa de CPF para cotar. Depois da escolha, a Lumi coleta nome e CPF válido; no WhatsApp o telefone vem do canal, no simulador é informado pela pessoa. A personalidade continua orientando as mensagens.

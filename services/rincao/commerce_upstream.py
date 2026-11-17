@@ -1,10 +1,13 @@
 """Executa os contratos existentes na VM por SSH verificado, sem abrir portas."""
 import base64
 import json
+import logging
 import os
 import subprocess
 from pathlib import Path
 from .config import required
+
+log = logging.getLogger(__name__)
 
 
 def request(operation, payload):
@@ -37,7 +40,6 @@ exit $LASTEXITCODE"""
         raise RuntimeError("commerce_remote_unavailable")
     data = json.loads(result.stdout.decode("utf-8-sig").strip())
     if data.get("rpc_error"):
-        diagnostic = Path(os.getenv("LOCALAPPDATA", Path.home())) / "Lumi" / "commerce-rpc-error.json"
-        diagnostic.write_text(json.dumps(data), encoding="utf-8")
+        log.warning("Rincão commerce RPC rejected the %s operation", operation)
         raise RuntimeError(data["rpc_error"])
     return data
