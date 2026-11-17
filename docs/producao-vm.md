@@ -52,6 +52,11 @@ A estimativa usa as [tarifas oficiais](https://developers.openai.com/api/docs/pr
 
 O backup anterior à release inicial está em `C:\LumiV3-PROD\backups\before-20261107-tenant-ai-r3.dump`; backups e releases anteriores foram preservados. A existência do dump não comprova restauração integral nem substitui uma rotina de backup. Preserve também a configuração privada e a chave Fernet, separadas do dump. Não restaure um banco antigo sobre conversas novas para desfazer somente uma publicação de código.
 
+O deploy faz backup antes da migração aditiva. A tabela `feature_calls` passa a
+aceitar o horário e o vínculo com a mensagem para novas chamadas de ferramentas.
+As chamadas antigas mantêm as duas colunas vazias. A migração pode ser repetida
+e não ativa exportação de dados.
+
 O script `scripts/windows/switch-prod-proxy.ps1` guarda o proxy anterior em `C:\LumiV3-PROD\backups\web.config.before-v3` e o estado/hashes em `proxy-state.json`. `-Restore` verifica o hash da configuração aplicada antes de restaurar e recusa sobrescrever uma mudança posterior. Execute a cópia revisada desse script em PowerShell administrativo com `-Restore` para retornar o proxy ao backend legado; não restaure o IIS inteiro nem altere outros sites da VM. O script de retorno foi revisado, mas sua execução na URL ativa não está registrada nesta entrega.
 
 Antes do retorno, reconfirme o estado dos callbacks. No estado documentado, o WhatsApp PROD ainda está no legado. Se o callback passar a apontar para `/webhooks/whatsapp` da V3, restaurar o proxy antigo removerá essa rota e interromperá eventos: primeiro coordene o retorno do callback específico e valide o receptor antigo, ou preserve a rota necessária ao receptor V3. Não troque assinaturas globais de outros aplicativos/números como atalho.

@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
-from sqlalchemy import exists, inspect, or_, select
+from sqlalchemy import exists, or_, select
 
 from .analytics_models import AnalyticsActivation, AnalyticsReceipt
 from .db import Session, engine as default_engine
@@ -57,18 +57,15 @@ def load_config(path):
 
 def migrate(config, *, engine=default_engine):
     """Add schema before deployment, without enabling any export."""
+    from .schema import prepare_feature_call_columns
+
     config.validate()
     with engine.begin() as connection:
         if engine.dialect.name not in {"sqlite", "postgresql"}:
             raise ValueError("Unsupported migration database")
         if connection.scalar(select(Tenant.id).where(Tenant.id == config.tenant_id)) is None:
             raise ValueError("Tenant not found")
-        columns = {column["name"] for column in inspect(connection).get_columns("feature_calls")}
-        if "created_at" not in columns:
-            timestamp = "TIMESTAMP WITH TIME ZONE" if engine.dialect.name == "postgresql" else "TIMESTAMP"
-            connection.exec_driver_sql("ALTER TABLE feature_calls ADD COLUMN created_at " + timestamp)
-        if "message_id" not in columns:
-            connection.exec_driver_sql("ALTER TABLE feature_calls ADD COLUMN message_id VARCHAR(36)")
+        prepare_feature_call_columns(connection)
         for table in (AnalyticsActivation.__table__, AnalyticsReceipt.__table__):
             table.create(connection, checkfirst=True)
 
