@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKeyConstraint,
     Integer,
+    Index,
     String,
     Text,
     UniqueConstraint,
@@ -82,6 +83,8 @@ class Message(Base):
             ["tenant_id", "conversation_id"],
             ["conversations.tenant_id", "conversations.id"],
         ),
+        Index("ix_messages_admin_history", "tenant_id", "conversation_id", "created_at", "id"),
+        Index("ix_messages_dashboard_period", "tenant_id", "sender", "created_at", "conversation_id"),
     )
 
 
@@ -148,3 +151,4 @@ class FeatureCall(Base):
     duration_ms: Mapped[str] = mapped_column(String(30))
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=now, nullable=True)
     message_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    __table_args__ = (Index("ix_feature_calls_admin_state", "tenant_id", "feature", "conversation_id", "created_at"),)

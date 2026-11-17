@@ -13,6 +13,7 @@ from .seed import seed
 from .auth_routes import router as auth_router
 from .onboarding_routes import router as onboarding_router
 from .admin import router as admin_router
+from .admin_history import router as admin_history_router
 from .client import router as client_router, private_simulator_user
 from .images import router as image_router
 from .media_models import ContactGate
@@ -39,7 +40,7 @@ from .simulation import router as simulation_router
 from .instagram.comment_admin import router as comment_admin_router
 from .role_instructions import router as role_instructions_router
 from .access import console_user
-from .schema import prepare_login_session_columns
+from .schema import prepare_admin_history_indexes, prepare_feature_call_columns, prepare_login_session_columns
 from .tenant_ai_routes import router as tenant_ai_router
 from .whatsapp.calling_admin import router as calling_router
 from .whatsapp.calling_reconcile import run_reconciler
@@ -56,6 +57,8 @@ async def lifespan(_):
     if active_engine.dialect.name == "sqlite":
         with active_engine.begin() as connection:
             prepare_login_session_columns(connection)
+            prepare_feature_call_columns(connection)
+            prepare_admin_history_indexes(connection)
     if os.getenv("LUMI_SEED_DEMO", "true").lower() in {"true", "1"}:
         seed()
     with active_engine.begin() as connection:
@@ -75,6 +78,7 @@ app = FastAPI(title="Lumi", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(onboarding_router)
 app.include_router(admin_router)
+app.include_router(admin_history_router)
 app.include_router(calling_router)
 app.include_router(client_router)
 app.include_router(image_router)

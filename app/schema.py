@@ -12,6 +12,14 @@ from . import role_instructions, tenant_ai, reply_delivery
 metadata = Base.metadata
 
 
+def prepare_admin_history_indexes(connection):
+    names = {"ix_messages_admin_history", "ix_messages_dashboard_period", "ix_feature_calls_admin_state"}
+    for table in (models.Message.__table__, models.FeatureCall.__table__):
+        for index in sorted(table.indexes, key=lambda item: item.name):
+            if index.name in names:
+                index.create(connection, checkfirst=True)
+
+
 def prepare_login_session_columns(connection):
     """Sessões existentes usam a data do próprio cookie até a primeira interação."""
     if connection.dialect.name == "postgresql":

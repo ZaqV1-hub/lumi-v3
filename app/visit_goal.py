@@ -30,7 +30,7 @@ def _confirmed_visit(result):
             and booking.get("status") == "Confirmado")
 
 
-def confirmed_conversations(db, tenant_id, *, conversation_id=None, incoming_id=None):
+def confirmed_conversations(db, tenant_id, *, conversation_id=None, conversation_ids=None, incoming_id=None):
     goal = db.get(VisitGoal, tenant_id)
     if not goal:
         return set()
@@ -39,6 +39,8 @@ def confirmed_conversations(db, tenant_id, *, conversation_id=None, incoming_id=
     )
     if conversation_id is not None:
         calls = calls.where(FeatureCall.conversation_id == conversation_id)
+    if conversation_ids is not None:
+        calls = calls.where(FeatureCall.conversation_id.in_(conversation_ids))
     if incoming_id is not None:
         calls = calls.where(FeatureCall.message_id == incoming_id)
     return {cid for cid, result in db.execute(calls) if _confirmed_visit(result)}

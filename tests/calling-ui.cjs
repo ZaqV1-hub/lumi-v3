@@ -28,7 +28,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
   });
   let operatorName='Operadora teste';
   const uploads=[];
-  const convo={id:'conversation-demo',name:'Nome não informado',contact_id:'contact-demo',channel:'whatsapp',status:'humano',role:'cliente',profile:{},messages:[]};
+  const convo={id:'conversation-demo',name:'Nome não informado',contact_id:'contact-demo',channel:'whatsapp',status:'humano',role:'cliente',can_reply:true,profile:{},messages:[]};
   await context.route('**/*',async route=>{
     const req=route.request(),url=new URL(req.url());
     if(url.origin!==base)return route.abort();
@@ -64,10 +64,17 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/ca
     else if(url.pathname.endsWith('/operator-attachment')){
       const kind=req.headers()['x-media-kind'], caption=decodeURIComponent(req.headers()['x-lumi-caption']);
       uploads.push({kind,caption,bytes:req.postDataBuffer().length});
-      convo.messages.push({sender:'humano',name:operatorName,content:caption || 'Áudio do atendente',attachment_kind:kind});
+      convo.messages.push({id:'upload-'+uploads.length,sender:'humano',name:operatorName,
+        content:caption || 'Áudio do atendente',attachment_kind:kind});
       data={ok:true};
     }else if(url.pathname==='/api/me')data={name:operatorName,tenant:'Empresa fictícia',assistant_name:'Ana',tenant_id:'tenant-demo',slug:'demo',role:'operador',lumi_enabled:true};
-    else if(url.pathname.endsWith('/conversations'))data=[convo];
+    else if(url.pathname.endsWith('/conversation-page')){
+      const query=(url.searchParams.get('q')||'').replace(/^#\s*/, '');
+      const status=url.searchParams.get('status');
+      const matched=(!status||status===convo.status)&&(!query||convo.contact_id.includes(query));
+      data={items:matched?[convo]:[],next_cursor:null,waiting_count:0};
+    }
+    else if(url.pathname.endsWith('/history'))data={conversation:convo,messages:convo.messages,next_cursor:null};
     else if(url.pathname.endsWith('/settings'))data={};
     else if(url.pathname.endsWith('/role-instructions'))data=[{role:'cliente',label:'Cliente'}];
     else if(url.pathname==='/api/logout'){logoutReleased=await page.evaluate(()=>window.qaTracks.length>0&&window.qaTracks.every(t=>t.readyState==='ended')&&window.qaPeers.every(p=>p.connectionState==='closed'));data={ok:true};}

@@ -246,6 +246,18 @@ class CallingAdminTest(unittest.TestCase):
         self.assertEqual(detail[-2]['id'], f'call:{call_id}')
         self.assertIn('encerrada · 0:18', detail[-2]['content'])
         self.assertEqual(detail[-1]['content'], 'Mensagem depois da chamada')
+        history = path + '/' + self.cid + '/history'
+        self.assertEqual(self.http.get(history).json()['messages'], detail)
+        self.assertEqual(self.other.get(history).status_code, 404)
+        with Session.begin() as db:
+            for i in range(20):
+                db.add(Message(tenant_id=self.tid, conversation_id=self.cid,
+                               sender='lumi', content=f'Mensagem adicional {i}'))
+        recent = self.http.get(history).json()
+        self.assertEqual(len(recent['messages']), 20)
+        self.assertNotIn(f'call:{call_id}', [item['id'] for item in recent['messages']])
+        older = self.http.get(history, params={'cursor': recent['next_cursor']}).json()
+        self.assertIn(f'call:{call_id}', [item['id'] for item in older['messages']])
         self.assertEqual(self.other.get(path + '/' + self.cid).status_code, 404)
         self.assertNotIn(f'call:{call_id}', [item['id'] for item in self.http.get('/api/client/synthetic-visitor').json()['messages']])
 

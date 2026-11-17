@@ -8,19 +8,13 @@ const humanDrafts = new Map();
 const sendingHumanReplies = new Set();
 let displayedConversation = null;
 
-function waitingConversations() {
-  return convos.filter(c => c.status === 'aguardando').sort((a,b) =>
-    String(a.waiting_since || a.created_at).localeCompare(String(b.waiting_since || b.created_at)) ||
-    a.id.localeCompare(b.id));
-}
-
-function renderConvos() {
-  const waiting = waitingConversations();
-  const waitingCount = new Set(waiting.map(c => c.contact_id || c.id)).size;
+function renderConvos(prepend = false) {
+  const waitingCount = adminWaitingCount;
   const scroll = $('.c-items')?.scrollTop || 0;
   const thread = $('.conversations-view .thread');
   const position = thread && {id: displayedConversation, top: thread.scrollTop,
-    atEnd: thread.scrollHeight - thread.clientHeight - thread.scrollTop < 60, profile: $('#contactProfile')?.open};
+    atEnd: !prepend && thread.scrollHeight - thread.clientHeight - thread.scrollTop < 60,
+    height: prepend ? thread.scrollHeight : null, profile: $('#contactProfile')?.open};
   const focused = document.activeElement;
   const inputId = ['cq', 'humanText'].includes(focused?.id) ? focused.id : '';
   const selection = inputId ? [focused.selectionStart, focused.selectionEnd] : [];
@@ -32,13 +26,7 @@ function renderConvos() {
       <span aria-hidden="true">→</span></button>` : ''}
     <div id="cbody"></div></div>`;
   drawConvoBody(position);
-  $('#openWaiting')?.addEventListener('click', () => {
-    ui.tp = 'Aguardando atendimento';
-    ui.conv = waiting[0].id;
-    ui.q = '';
-    ui.mobileDetail = true;
-    drawConvoBody();
-  });
+  $('#openWaiting')?.addEventListener('click', () => setConversationFilter('Aguardando atendimento', true));
   $('.c-items').scrollTop = scroll;
   const input = inputId && $('#' + inputId);
   if (input) {
@@ -56,58 +44,69 @@ function contactLabel(c) {
 const visitGoalBadge = c => c.visit_confirmed ? '<span class="pill wa">Visita agendada</span>' : '';
 
 function conversationRow(c) {
-  const last = c.messages.at(-1);
-  const status = c.blocked ? 'Bloqueado por spam' : c.operator_name ? 'Com ' + c.operator_name : statusLabel(c.status);
+  const last = c.last_message;
+  const status = c.blocked ? 'Bloqueado por spam' : c.operator_name ? 'Com ' + c.operator_name
+    : c.status === 'aguardando' ? 'Aguardando atendimento' : statusLabel(c.status);
   return `<button type="button" class="c-item" data-id="${esc(c.id)}" aria-current="${c.id === ui.conv}">
     <span class="top"><span class="pill wa">${conversationChannel(c.channel)}</span><time>${clockTime(last?.created_at || c.created_at)}</time></span>
     ${contactLabel(c)}<span class="last">${esc(last?.content || last?.attachment_name || 'Conversa iniciada')}</span>
-    <span class="pill ${c.blocked ? 'topic' : c.status}">${esc(status)}</span> ${visitGoalBadge(c)}</button>`;
+    <span class="conversation-row-status"><span class="pill ${c.blocked ? 'topic' : c.status}">${esc(status)}</span>${visitGoalBadge(c)}</span></button>`;
 }
 
 function drawConvoBody(position) {
-  const selectedStatus = {[statusLabel('lumi')]:'lumi','Aguardando atendimento':'aguardando','Atendimento humano':'humano'}[ui.tp];
-  const query = ui.q.trim().toLowerCase();
-  const idQuery = query.replace(/^#\s*/, '');
-  const list = (selectedStatus === 'aguardando' ? waitingConversations() : convos).filter(c => (!selectedStatus || c.status === selectedStatus) &&
-    (c.name.toLowerCase().includes(query) || (idQuery && [c.contact_id, c.id].some(id => id?.toLowerCase().includes(idQuery)))));
-  const claimed = selectedStatus === 'aguardando' && convos.find(c => c.id === ui.conv && c.status === 'humano' && c.can_reply);
-  if (!claimed && !list.some(c => c.id === ui.conv)) ui.conv = list[0]?.id || '';
-  const c = claimed || list.find(c => c.id === ui.conv);
-  displayedConversation = c?.id;
+  const selectedStatus = conversationFilter();
+  const list = conversationList;
+  const c = threadPreview();
+  displayedConversation = ui.conv;
+  const thread = conversationThread;
   const listTop = $('.c-items')?.scrollTop || 0;
   const searchFocused = document.activeElement?.id === 'cq';
   const cursor = searchFocused ? $('#cq').selectionStart : null;
   calling.parkBar();
-  $('#cbody').innerHTML = `<section class="card convo ${ui.mobileDetail && c ? 'show-detail' : ''}">
+  $('#cbody').innerHTML = `<section class="card convo ${ui.mobileDetail && ui.conv ? 'show-detail' : ''}">
     <div class="c-list">
-      <div class="list-heading"><span class="count">${list.length} ${list.length === 1 ? 'atendimento' : 'atendimentos'}</span>
+      <div class="list-heading"><span class="count">${list.items ? list.items.length + (list.items.length === 1 ? ' atendimento exibido' : ' atendimentos exibidos') : ''}</span>
       <div class="conversation-tabs" role="group" aria-label="Filtrar conversas">
         <button type="button" data-filter="" aria-pressed="${!selectedStatus}">Todas</button>
         <button type="button" data-filter="Aguardando atendimento" aria-pressed="${selectedStatus === 'aguardando'}">Aguardando</button>
         <button type="button" data-filter="Atendimento humano" aria-pressed="${selectedStatus === 'humano'}">Com atendente</button>
       </div></div>
       <div class="conversation-search">${searchIco}<input class="input" id="cq" aria-label="Buscar por nome ou ID" placeholder="Buscar por nome ou ID" value="${esc(ui.q)}"></div>
-      <div class="c-items">${list.map(conversationRow).join('') || '<div class="empty">Nenhuma conversa neste filtro.</div>'}</div>
+      <div class="c-items">${list.items?.map(conversationRow).join('') || ''}
+        ${list.items && !list.items.length ? '<div class="empty">Nenhuma conversa neste filtro.</div>' : ''}
+        ${list.cursor ? '<div class="page-more"><button type="button" class="btn btn-ghost" id="moreConversations"' + (list.busy ? ' disabled' : '') + '>' + (list.busy ? 'Carregando…' : 'Ver mais contatos') + '</button></div>' : ''}
+        <div id="conversationListStatus"></div>
+      </div>
     </div>
-    <div class="c-detail">${c ? conversationDetail(c) : '<div class="empty">Nenhuma conversa selecionada.</div>'}</div>
+    <div class="c-detail">${thread?.conversation ? conversationDetail({...c, messages: thread.messages})
+      : ui.conv ? '<div id="conversationHistoryStatus"></div>' : '<div class="empty">Nenhuma conversa selecionada.</div>'}</div>
   </section>`;
   $('.c-items').scrollTop = listTop;
-  $('#cq').oninput = event => { ui.q = event.target.value; drawConvoBody(); };
+  $('#cq').oninput = event => searchConversations(event.target.value);
   if (searchFocused) { $('#cq').focus({preventScroll:true}); $('#cq').setSelectionRange(cursor, cursor); }
-  document.querySelectorAll('.conversation-tabs button').forEach(button => button.onclick = () => {
-    ui.tp = button.dataset.filter;
-    if (ui.tp === 'Aguardando atendimento') ui.conv = '';
-    drawConvoBody();
-    document.querySelector('.conversation-tabs [aria-pressed="true"]')?.focus({preventScroll:true});
+  document.querySelectorAll('.conversation-tabs button').forEach(button => {
+    button.onclick = () => setConversationFilter(button.dataset.filter);
   });
-  document.querySelectorAll('.c-item').forEach(button => button.onclick = () => {
-    ui.conv = button.dataset.id;
-    ui.mobileDetail = true;
-    drawConvoBody();
+  document.querySelectorAll('.c-item').forEach(button => {
+    button.onclick = () => openConversation(button.dataset.id);
   });
-  mountCallingControls(c);
+  $('#moreConversations')?.addEventListener('click', () => loadConversationPage({ more: true }));
+  if (list.error) {
+    adminDataStatus($('#conversationListStatus'), 'Não foi possível carregar os atendimentos.',
+                    () => loadConversationPage({ more: Boolean(list.items && list.cursor) }));
+  } else if (!list.items) {
+    adminDataStatus($('#conversationListStatus'), 'Carregando atendimentos…');
+  }
+  const historyStatus = $('#conversationHistoryStatus');
+  if (historyStatus) {
+    if (thread?.error) adminDataStatus(historyStatus, 'Não foi possível carregar a conversa.', loadConversationThread);
+    else adminDataStatus(historyStatus, 'Carregando mensagens…');
+    historyStatus.insertAdjacentHTML('afterbegin', '<button type="button" class="btn btn-ghost back" aria-label="Voltar aos atendimentos">‹</button>');
+    historyStatus.querySelector('.back').onclick = () => { ui.mobileDetail = false; renderConvos(); };
+  }
+  mountCallingControls(thread?.conversation || null);
   stopOperatorRecordingUnless(c?.can_reply !== false ? c?.id : null);
-  if (!c) return;
+  if (!thread?.conversation) return;
   wireConversation(c, position?.id === c.id ? position : null);
 }
 
@@ -121,7 +120,8 @@ function wireConversation(c, position) {
       toast('Papel do contato atualizado.');
     } catch (error) { field.value = c.role; toast(error.message); }
   };
-  $('.back').onclick = () => { ui.mobileDetail = false; drawConvoBody(); };
+  $('.back').onclick = () => { ui.mobileDetail = false; renderConvos(); };
+  $('#moreMessages')?.addEventListener('click', () => loadConversationThread({ older: true }));
   for (const [id, action] of [['take','claim'], ['release','release'], ['unblock','unblock']]) {
     $('#' + id)?.addEventListener('click', async event => {
       const button = event.currentTarget;
@@ -179,7 +179,8 @@ function wireConversation(c, position) {
   if (position?.profile) $('#contactProfile').open = true;
   const thread = $('.thread');
   const jump = $('#jumpMessages');
-  thread.scrollTop = position && !position.atEnd ? position.top : thread.scrollHeight;
+  const addedHeight = position?.height ? thread.scrollHeight - position.height : 0;
+  thread.scrollTop = position && !position.atEnd ? position.top + addedHeight : thread.scrollHeight;
   thread.onscroll = () => { jump.hidden = thread.scrollHeight - thread.clientHeight - thread.scrollTop < 60; };
   thread.onscroll();
   jump.onclick = () => { thread.scrollTop = thread.scrollHeight; };
@@ -204,7 +205,7 @@ function conversationDetail(c) {
     ${conversationProfile(c)}
   </header>
   <div id="calling-slot"></div>
-  <div class="thread-wrap"><div class="thread" role="log" aria-label="Mensagens da conversa">${conversationMessages(c)}</div><button id="jumpMessages" type="button" hidden>Ir para as últimas mensagens ↓</button></div>
+  <div class="thread-wrap"><div class="thread" role="log" aria-label="Mensagens da conversa">${conversationThread.cursor ? `<div class="page-more"><button id="moreMessages" class="btn btn-ghost" type="button" ${conversationThread.busy ? 'disabled' : ''}>${conversationThread.busy ? 'Carregando…' : conversationThread.error ? 'Tentar carregar mensagens anteriores novamente' : 'Ver mais mensagens'}</button></div>` : ''}${conversationMessages(c)}</div><button id="jumpMessages" type="button" hidden>Ir para as últimas mensagens ↓</button></div>
   ${canReply ? `<form id="humanForm" class="reply-box">
     ${operatorMediaControls(c)}
     <textarea id="humanText" class="input" rows="1" aria-label="Sua resposta ao cliente" placeholder="Escreva sua mensagem"></textarea>
@@ -233,7 +234,7 @@ function conversationMessages(c) {
     const kind = {cliente:'in', sistema:'system', humano:'me', lumi:'out'}[m.sender] || 'in';
     const url = m.image_id ? adminPath('/api/admin/images/' + m.image_id + '/file') : m.attachment_url && adminPath(m.attachment_url);
     let media = '';
-    if (url && (m.image_id || m.attachment_kind === 'image')) media = `<button type="button" class="conversation-photo" aria-label="Ampliar imagem"><img src="${esc(url)}" alt="Imagem da conversa"></button>`;
+    if (url && (m.image_id || m.attachment_kind === 'image')) media = `<button type="button" class="conversation-photo" aria-label="Ampliar imagem"><img src="${esc(url)}" alt="Imagem da conversa" loading="lazy"></button>`;
     if (url && m.attachment_kind === 'audio') media = `<audio controls preload="metadata" src="${esc(url)}"></audio>`;
     if (url && m.attachment_kind === 'video') media = `<video controls preload="metadata" src="${esc(url)}"></video>`;
     if (url && m.attachment_kind === 'document') media = `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(m.attachment_name || 'Documento')}</a>`;

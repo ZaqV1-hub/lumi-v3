@@ -2,9 +2,9 @@
 from collections import defaultdict
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import literal, select
 
-from ..conversations import timestamp
+from ..conversations import before_cursor, timestamp
 from ..models import User
 from .calling import schema_ready, utc
 from .calling_models import CallOperation
@@ -21,7 +21,7 @@ CALL_LABELS = {
 }
 
 
-def call_timeline(db, tenant_id, conversation_id=None):
+def call_timeline(db, tenant_id, conversation_id=None, *, limit=None, before=None):
     events = defaultdict(list)
     if not schema_ready(db):
         return events
@@ -33,6 +33,10 @@ def call_timeline(db, tenant_id, conversation_id=None):
     )
     if conversation_id:
         query = query.where(CallOperation.conversation_id == conversation_id)
+    if before:
+        query = query.where(before_cursor(CallOperation.created_at, literal('call:') + CallOperation.id, before))
+    if limit is not None:
+        query = query.order_by(CallOperation.created_at.desc(), CallOperation.id.desc()).limit(limit)
     for call, operator in db.execute(query):
         label = CALL_LABELS[call.state]
         if call.connected_at and call.ended_at:

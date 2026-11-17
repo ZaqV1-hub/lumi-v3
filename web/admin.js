@@ -1,16 +1,15 @@
 let me,
   simulationRoles = [],
   contactRoles = [{role:'cliente',label:'Cliente'},{role:'gestor',label:'Gestor'},{role:'atendente',label:'Atendente'}],
-  convos = [],
   kb = [],
   imgs = [],
   saved = {},
   draft = {},
   settingsLoaded = false,
-  settingsRequest = null,
-  lastRows = null,
-  conversationLoadError = false,
-  refreshing = false;
+  settingsRequest = null;
+let adminWaitingCount = 0;
+let openedTarget = false;
+let conversationRolesRequested = false;
 const ui = {
   conv: "",
   q: "",
@@ -164,13 +163,15 @@ function showSettings() {
   });
 }
 async function loadConversationRoles() {
+  if (conversationRolesRequested) return;
+  conversationRolesRequested = true;
   const results = await Promise.allSettled([
     api('/api/admin/simulations/roles'),
     api('/api/admin/role-instructions'),
   ]);
   if (results[0].status === "fulfilled") simulationRoles = results[0].value;
   if (results[1].status === "fulfilled") contactRoles = results[1].value;
-  if (page() === "conversas" && lastRows !== null) renderConvos();
+  if (page() === "conversas" && conversationList) renderConvos();
 }
 $("#pwToggle").onclick = () => {
   const p = $("#pw");
@@ -224,7 +225,11 @@ window.addEventListener("hashchange", () => {
   if (me) route();
 });
 document.querySelector('.nav a[data-route="conversas"]').addEventListener('click', () => {
-  ui.tp = ''; ui.q = ''; if (page() === 'conversas') showConversationData();
+  if (page() === 'conversas') {
+    setConversationFilter('');
+  } else {
+    ui.conv = ''; ui.tp = ''; ui.q = ''; ui.mobileDetail = false;
+  }
 });
 async function boot() {
   const startup = $("#adminStartup");
@@ -255,8 +260,6 @@ async function boot() {
   paintAccountName();
   route();
   $("#app").hidden = false;
-  void loadConversationRoles();
-  void refresh();
 }
 function page() {
   return (location.hash || "#dashboard").slice(1);
@@ -288,7 +291,19 @@ function route() {
       : "Administração da assistente");
   if (p === "consumo") drawUsage();
   else if (p === "configuracoes") showSettings();
-  else showConversationData();
+  else if (p === "conversas") {
+    const target = new URLSearchParams(location.search).get("conversation");
+    if (target && !openedTarget) {
+      ui.conv = target;
+      ui.mobileDetail = true;
+      openedTarget = true;
+    }
+    if (conversationThread?.id !== ui.conv) conversationThread = null;
+    openConversationList();
+    void loadConversationRoles();
+  } else {
+    renderDash();
+  }
 }
 const assistantName = () => me?.assistant_name || 'Lumi';
 const statusLabel = (s) =>
@@ -297,54 +312,13 @@ const statusLabel = (s) =>
     aguardando: "Pediu atendimento humano",
     humano: "Atendimento humano",
   })[s];
-function updateHandoverCount() {
-  const count = new Set(convos.filter(c => c.status === "aguardando").map(c => c.contact_id || c.id)).size;
+function updateHandoverCount(count) {
+  const changed = adminWaitingCount !== count;
+  adminWaitingCount = count;
   const badge = $("#handoverCount");
   badge.textContent = count ? String(count) : "";
   badge.hidden = count === 0;
   badge.setAttribute("aria-label", `${count} ${count === 1 ? "pessoa aguardando atendimento humano" : "pessoas aguardando atendimento humano"}`);
+  return changed;
 }
-function showConversationData() {
-  if (lastRows !== null) {
-    if (page() === "conversas") renderConvos();
-    else renderDash();
-  } else if (conversationLoadError) {
-    adminDataStatus($("#content"), "Não foi possível carregar os atendimentos.", () => {
-      conversationLoadError = false;
-      showConversationData();
-      void refresh();
-    });
-  } else {
-    adminDataStatus($("#content"), "Carregando atendimentos…");
-  }
-}
-
-async function refresh(redraw = true) {
-  if (!me || refreshing || conversationLoadError) return;
-  refreshing = true;
-  try {
-    const data = await api("/api/admin/conversations", "GET", undefined, AbortSignal.timeout(30000));
-    const target = new URLSearchParams(location.search).get("conversation");
-    if (target && !refresh.openedTarget && page() === "conversas") {
-      refresh.openedTarget = true;
-      if (data.some(c => c.id === target)) {
-        ui.conv = target;
-        ui.mobileDetail = true;
-      }
-    }
-    const rows = JSON.stringify(data);
-    const changed = rows !== lastRows;
-    convos = data;
-    updateHandoverCount();
-    lastRows = rows;
-    if (redraw && changed && !["configuracoes","consumo"].includes(page())) showConversationData();
-  } catch (error) {
-    if (lastRows === null && error.status !== 401) {
-      conversationLoadError = true;
-      if (!["configuracoes","consumo"].includes(page())) showConversationData();
-    }
-  } finally {
-    refreshing = false;
-  }
-}
-window.addEventListener("DOMContentLoaded", () => { boot(); setInterval(() => refresh(), 1500); });
+window.addEventListener("DOMContentLoaded", () => { boot(); setInterval(() => refresh(), 5000); });
