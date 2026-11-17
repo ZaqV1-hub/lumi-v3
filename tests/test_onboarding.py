@@ -118,6 +118,61 @@ class OnboardingTest(unittest.TestCase):
             audit = db.scalar(select(FeatureCall).where(FeatureCall.conversation_id == self.cid))
             self.assertEqual(json.loads(audit.result), {"accepted": True})
 
+    def test_assisted_queue_continues_until_an_operator_claims(self):
+        from app import client, features
+        from app.models import Conversation, Feature, FeatureCall
+
+        with self.Session.begin() as db:
+            chat = db.get(Conversation, self.cid)
+            handover = db.scalar(select(Feature).where(
+                Feature.tenant_id == chat.tenant_id, Feature.name == "handover"
+            ))
+            handover.endpoint = features.ASSISTED_HANDOVER_ENDPOINT
+        endpoint = "/api/client/" + self.token
+        replies = [{"reply": "A equipe poderá responder por aqui. Posso continuar ajudando.", "action": "handover"},
+                   {"reply": "Enquanto isso, posso consultar os ingressos.", "action": "none"}]
+        with patch.object(client, "reply", side_effect=replies) as model:
+            self.admin.post(endpoint + "/messages", json={"content": "Quero falar com um atendente."}).raise_for_status()
+            self.admin.post(endpoint + "/messages", json={"content": "Quero falar com um atendente sobre ingressos."}).raise_for_status()
+            self.assertIn("já está na fila", model.call_args.args[0])
+            self.assertEqual(self.admin.get(endpoint).json()["status"], "aguardando")
+            self.admin.post(f"/api/admin/conversations/{self.cid}/claim").raise_for_status()
+            self.admin.post(endpoint + "/messages", json={"content": "Boa tarde"}).raise_for_status()
+            self.assertEqual(model.call_count, 2)
+        self.assertEqual(self.admin.get(endpoint).json()["status"], "humano")
+        with self.Session() as db:
+            count = len(list(db.scalars(select(FeatureCall).where(FeatureCall.conversation_id == self.cid))))
+            self.assertEqual(count, 1)
+
+    def test_assisted_alert_uses_only_the_topic_and_protected_conversation_link(self):
+        import os
+        from app import client, features
+        from app.models import Conversation, Feature
+        from app.whatsapp import handover_alerts as alerts
+        from app.whatsapp.models import Channel, Chat
+
+        with self.Session.begin() as db:
+            chat = db.get(Conversation, self.cid)
+            tid = chat.tenant_id
+            feature = db.scalar(select(Feature).where(Feature.tenant_id == tid, Feature.name == "handover"))
+            feature.endpoint = features.ASSISTED_HANDOVER_ENDPOINT
+            db.add(Channel(phone_number_id="123456", tenant_id=tid, token_env="FAKE_WA_TOKEN"))
+            db.flush()
+            db.add(Chat(id=self.cid, phone_number_id="123456", sender="15555550112", token=self.token))
+        config = {tid: {"phone_number_id": "123456", "recipient": "15555550123",
+                        "admin_url": "https://admin.example.test", "template": "handover_alert"}}
+        answer = {"reply": "A equipe poderá seguir com você.", "action": "handover", "handover_topic": "pagamento"}
+        with patch.dict(os.environ, {"LUMI_HANDOVER_ALERTS": json.dumps(config)}), \
+                patch.object(client, "reply", return_value=answer), \
+                patch.object(alerts, "send_handover_template", return_value="wamid.synthetic") as outbound:
+            self.admin.post("/api/client/" + self.token + "/messages",
+                            json={"content": "Quero falar com um atendente sobre meu pedido."}).raise_for_status()
+            self.assertTrue(alerts.deliver_alert())
+            self.assertFalse(alerts.deliver_alert())
+        outbound.assert_called_once_with("123456", "FAKE_WA_TOKEN", "15555550123", "handover_alert",
+                                        "Pagamento ou pedido",
+                                        f"https://admin.example.test/admin?tenant={tid}&conversation={self.cid}#conversas")
+
     def test_spontaneous_intent_name_completion_and_return(self):
         prompt = self.send("Quero valores dos ingressos", [{"objective_id": self.reason,
             "value": "valores dos ingressos", "evidence": "Quero valores dos ingressos"}], self.name)

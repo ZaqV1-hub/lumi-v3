@@ -15,6 +15,7 @@ from .config import app_secret, load_config
 from .models import Channel, Inbox
 from .bridge import receive, deliver_one, record_delivery
 from .follow_up import poll as poll_follow_up
+from .handover_alerts import HandoverAlert, deliver_alert
 from .calling_webhook import is_permission_reply, process_permission, process_calls
 from .calling_models import CALLING_TABLES
 from .checkout_proxy import router as checkout_router
@@ -46,6 +47,7 @@ async def lifespan(_):
             )
         )
         db.execute(update(ContactGate).values(pending=0))
+        db.execute(update(HandoverAlert).where(HandoverAlert.status == "sending").values(status="uncertain"))
         db.execute(update(CommentJob).where(CommentJob.status.in_(["queued", "generating", "sending"])).values(status="interrupted", error="Servidor reiniciado; confira o comentário antes de reenviar."))
 
     async def deliver():
@@ -59,13 +61,25 @@ async def lifespan(_):
             await asyncio.sleep(0.1 if had_item else 0.5)
 
     worker = asyncio.create_task(deliver())
+    async def deliver_handover_alerts():
+        while True:
+            try:
+                processed = await asyncio.to_thread(deliver_alert)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("Handover alert worker failed")
+                processed = False
+            await asyncio.sleep(0.1 if processed else 1)
+
+    alerts = asyncio.create_task(deliver_handover_alerts())
     follow_up = asyncio.create_task(poll_follow_up())
     try:
         yield
     finally:
         worker.cancel()
+        alerts.cancel()
         follow_up.cancel()
-        await asyncio.gather(worker, follow_up, return_exceptions=True)
+        await asyncio.gather(worker, alerts, follow_up, return_exceptions=True)
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)

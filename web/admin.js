@@ -301,6 +301,14 @@ async function refresh(redraw = true) {
   refreshing = true;
   try {
     const data = await api("/api/admin/conversations");
+    const target = new URLSearchParams(location.search).get("conversation");
+    if (target && !refresh.openedTarget && page() === "conversas") {
+      refresh.openedTarget = true;
+      if (data.some(c => c.id === target)) {
+        ui.conv = target;
+        ui.mobileDetail = true;
+      }
+    }
     const changed = JSON.stringify(data) !== lastRows;
     convos = data;
     updateHandoverCount();

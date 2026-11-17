@@ -35,6 +35,8 @@ $('#pwForm').onsubmit=async event=>{
 async function boot(){
   let me;try{me=await api('/api/me');}catch{show('login');$('#loginForm').hidden=false;$('#pwForm').hidden=true;return;}
   if(me.must_change_password){show('login');$('#loginForm').hidden=true;$('#pwForm').hidden=false;$('#np').focus();return;}
+  const link = new URLSearchParams(location.search);
+  if(link.has('tenant') && link.has('conversation')){location.reload();return;}
   if(me.role!=='brevia'){location.replace('/admin');return;}
   operator=me;$('#currentPw').value='';$('#meName').textContent=me.name;$('#meAv').textContent=me.name[0];dataLoadedAt=0;await route();
 }

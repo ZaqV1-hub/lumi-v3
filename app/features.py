@@ -11,6 +11,18 @@ from .analytics_models import scoped_message_id
 
 
 NATIVE_HANDOVER_ENDPOINT = "native:queue"
+ASSISTED_HANDOVER_ENDPOINT = "native:assist"
+
+
+def assist_while_waiting(db, tenant_id):
+    return db.scalar(select(Feature.id).where(
+        Feature.tenant_id == tenant_id, Feature.name == "handover",
+        Feature.enabled.is_(True), Feature.endpoint == ASSISTED_HANDOVER_ENDPOINT,
+    )) is not None
+
+
+def ai_active(db, tenant_id, status):
+    return status == "lumi" or (status == "aguardando" and assist_while_waiting(db, tenant_id))
 
 
 def asks_for_human(text):
@@ -51,7 +63,7 @@ def request_handover(tenant_id, conversation_id, role, reason):
     started = time.monotonic()
     result = {}
     try:
-        if endpoint == NATIVE_HANDOVER_ENDPOINT:
+        if endpoint in {NATIVE_HANDOVER_ENDPOINT, ASSISTED_HANDOVER_ENDPOINT}:
             result = {"accepted": True}
         else:
             request = urllib.request.Request(

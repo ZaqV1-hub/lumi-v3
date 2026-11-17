@@ -2,6 +2,7 @@
 import logging
 import httpx
 from ..db import Session
+from ..features import ai_active
 from ..models import Conversation
 from ..media_models import ContactGate, ConversationControl
 from ..reply_delivery import ReplyDelivery
@@ -28,7 +29,7 @@ def notify_processing(receipt):
             chat = db.get(Chat, cid)
             channel = db.get(Channel, chat.phone_number_id) if chat else None
             if not (settings and settings.typing and conversation and conversation.tenant_id == tid
-                    and conversation.status == "lumi" and enabled(db, tid)
+                    and ai_active(db, tid, conversation.status) and enabled(db, tid)
                     and (state.revision if state else 0) == receipt["revision"]
                     and not (gate and gate.blocked) and channel and channel.tenant_id == tid):
                 return

@@ -25,3 +25,15 @@ Antes de devolver a integração à equipe, o desenvolvedor precisa demonstrar s
 O serviço falso `services.handover` mantém um protocolo legado com `tenant_id`, `conversation_id` e `reason` no corpo. Ele não usa esse envelope genérico; não alterar esse formato sem uma migração revisada. O e-commerce Estância possui seus contratos no site e depende do projeto desse site. Os adaptadores de cadastro Rincão são referência de integração e não devem substituir sem revisão o que já está publicado no HML.
 
 A funcionalidade `handover` com destino `native:queue` usa a fila de conversas do admin. A Lumi segue os critérios de encaminhamento configurados pelo tenant e o servidor aplica os papéis autorizados. A conversa fica aguardando atendimento e o encaminhamento é registrado no histórico de ferramentas.
+
+Com `native:assist`, a conversa continua na fila e a Lumi pode responder até
+um operador assumir. A troca invalida respostas em processamento. A
+configuração privada `LUMI_HANDOVER_ALERTS` associa o ID do tenant ao
+`phone_number_id`, ao `recipient`, à origem HTTPS `admin_url` e, quando
+aprovado, ao `template` em pt-BR com dois campos de corpo para assunto e link.
+O link exige login e as permissões do tenant. O aviso contém um assunto
+padronizado e o link, sem copiar a conversa. Sem modelo aprovado, o envio de
+texto exige uma conversa recente do destinatário com o mesmo número empresarial.
+Os avisos usam uma fila própria. Envios incertos ficam registrados para
+conferência, sem repetição automática. A migração de deploy é aditiva. Para
+voltar, restaure a configuração do tenant e preserve os pedidos já recebidos.

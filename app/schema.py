@@ -5,6 +5,7 @@ from . import models, media_models, incoming_models, onboarding_models, tool_mod
 from . import usage_models, console_models, business_models, tenant_runtime
 from .whatsapp import models as whatsapp_models
 from .whatsapp import calling_models
+from .whatsapp import handover_alerts
 from .instagram import models as instagram_models, comment_models
 from . import role_instructions, tenant_ai, reply_delivery
 

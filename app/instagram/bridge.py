@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session as OrmSession
 from ..db import Session
+from ..features import ai_active
 from ..models import Contact, Conversation, VisitorSession, Message, MessageAuthor
 from ..spam import admission_lock
 from .models import Channel, Chat, Inbox, Outbox
@@ -157,7 +158,7 @@ def failed_receipt(profile_id, external_id, sender, text, stage, exc, registered
             return
         if not registered and stage != "registro da mensagem":
             db.add(Message(tenant_id=channel.tenant_id, conversation_id=chat.id, sender="cliente", content=text[:2000] or "[Anexo recebido: não foi possível carregar o arquivo.]"))
-        if conversation.status == "lumi" and enabled(db, channel.tenant_id) and allows_role(db, channel.tenant_id, contact.role):
+        if ai_active(db, channel.tenant_id, conversation.status) and enabled(db, channel.tenant_id) and allows_role(db, channel.tenant_id, contact.role):
             db.add(Message(tenant_id=channel.tenant_id, conversation_id=chat.id, sender="sistema", content="Não consegui abrir o anexo que você enviou. Pode reenviar ou mandar sua mensagem por escrito?"))
 
 

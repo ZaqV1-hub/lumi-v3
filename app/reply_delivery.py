@@ -49,7 +49,7 @@ def split_reply(text, limit):
     return parts or [text]
 
 
-def save_reply(db, tid, cid, text, revision, *, has_image=False, has_document=False):
+def save_reply(db, tid, cid, text, revision, *, has_image=False, has_document=False, track_revision=False):
     setting = db.get(ReplyDelivery, tid)
     parts = [text]
     if setting and not ((has_image or has_document) and len(text) <= 1024):
@@ -64,18 +64,20 @@ def save_reply(db, tid, cid, text, revision, *, has_image=False, has_document=Fa
                       created_at=timestamp + timedelta(microseconds=index))
         db.add(row)
         db.flush()
-        if setting or paired_media:
+        if setting or paired_media or track_revision:
             db.add(ReplyPart(message_id=row.id, revision=revision))
         rows.append(row)
     return rows
 
 
 def may_deliver(db, message):
+    from .features import ai_active
+
     part = db.get(ReplyPart, message.id)
     if not part:
         return True
     conversation = db.get(Conversation, message.conversation_id)
     state = db.get(ConversationControl, message.conversation_id)
     return bool(conversation and conversation.tenant_id == message.tenant_id
-                and conversation.status == "lumi" and enabled(db, message.tenant_id)
+                and ai_active(db, message.tenant_id, conversation.status) and enabled(db, message.tenant_id)
                 and (state.revision if state else 0) == part.revision)

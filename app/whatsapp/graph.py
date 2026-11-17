@@ -63,6 +63,24 @@ def send(phone_id, token_env, recipient, text, image_data=None, *, document=None
         return result["messages"][0]["id"]
 
 
+def send_handover_template(phone_id, token_env, recipient, template, subject, link):
+    version = required("WHATSAPP_GRAPH_VERSION")
+    if not re.fullmatch(r"v\d+\.\d+", version):
+        raise RuntimeError("Versão Graph API inválida.")
+    payload = {
+        "messaging_product": "whatsapp", "to": recipient, "type": "template",
+        "template": {"name": template, "language": {"code": "pt_BR"}, "components": [
+            {"type": "body", "parameters": [
+                {"type": "text", "text": subject}, {"type": "text", "text": link},
+            ]},
+        ]},
+    }
+    headers = {"Authorization": "Bearer " + access_token(token_env)}
+    with httpx.Client(timeout=10, headers=headers) as client:
+        result = check(client.post(f"https://graph.facebook.com/{version}/{phone_id}/messages", json=payload))
+    return result["messages"][0]["id"]
+
+
 def check(response):
     if response.is_error:
         try:

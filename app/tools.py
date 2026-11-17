@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from jsonschema import Draft202012Validator, FormatChecker
 from sqlalchemy import select
 from .db import Session
+from .features import ai_active
 from .models import Contact, Conversation, Feature, FeatureCall, Message
 from .whatsapp.models import Chat
 from .instagram.models import Chat as InstagramChat
@@ -87,7 +88,7 @@ def execute_tool(tenant_id, conversation_id, call, revision, cutoff=None):
             chat = db.scalar(select(Conversation).where(
                 Conversation.id == conversation_id, Conversation.tenant_id == tenant_id))
             state = db.get(ConversationControl, conversation_id)
-            if not chat or not enabled(db,tenant_id) or chat.status != "lumi" or (state and state.revision != revision):
+            if not chat or not enabled(db,tenant_id) or not ai_active(db, tenant_id, chat.status) or (state and state.revision != revision):
                 result = {"error": "atendimento_alterado"}
                 return result
             role = db.get(Contact, chat.contact_id).role

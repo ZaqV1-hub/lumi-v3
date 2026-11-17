@@ -31,7 +31,7 @@ CODEX_CONFIG = {
 }
 
 
-def reply(prompt: str, tools=None, images=None, *, tenant_id=None, document_ids=(), follow_up=False):
+def reply(prompt: str, tools=None, images=None, *, tenant_id=None, document_ids=(), follow_up=False, handover_topic=False):
     config = configuration(tenant_id)
     provider, model = config.provider, config.model
     if provider == "demo":
@@ -67,6 +67,14 @@ def reply(prompt: str, tools=None, images=None, *, tenant_id=None, document_ids=
         schema["required"].append("document_id")
     if follow_up:
         schema["properties"]["action"]["enum"] = ["none", "skip_follow_up"]
+    if handover_topic:
+        from .whatsapp.handover_alerts import TOPICS
+
+        schema["properties"]["handover_topic"] = {
+            "type": ["string", "null"], "enum": [None, *TOPICS],
+            "description": "Tema do pedido de atendimento humano, ou null para outras ações.",
+        }
+        schema["required"].append("handover_topic")
     if provider == "openai":
         from .openai_provider import reply as openai_reply
         return openai_reply(prompt, schema, images, model=model, api_key=config.api_key)
