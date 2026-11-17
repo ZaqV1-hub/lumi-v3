@@ -8,8 +8,15 @@ const humanDrafts = new Map();
 const sendingHumanReplies = new Set();
 let displayedConversation = null;
 
+function waitingConversations() {
+  return convos.filter(c => c.status === 'aguardando').sort((a,b) =>
+    String(a.waiting_since || a.created_at).localeCompare(String(b.waiting_since || b.created_at)) ||
+    a.id.localeCompare(b.id));
+}
+
 function renderConvos() {
-  const waiting = convos.filter(c => c.status === 'aguardando');
+  const waiting = waitingConversations();
+  const waitingCount = new Set(waiting.map(c => c.contact_id || c.id)).size;
   const scroll = $('.c-items')?.scrollTop || 0;
   const thread = $('.conversations-view .thread');
   const position = thread && {id: displayedConversation, top: thread.scrollTop,
@@ -20,9 +27,18 @@ function renderConvos() {
   calling.parkBar();
   $('#content').innerHTML = `<div class="conversations-view">
     <div class="conversation-toolbar"><span>Atendimentos</span><div class="simulation-links">${simulationRoles.map(r => `<a class="btn btn-ghost btn-sm" href="/chat/${encodeURIComponent(me.slug)}?tenant=${encodeURIComponent(me.tenant_id)}&simulation=${encodeURIComponent(r.role)}" target="_blank" rel="noopener">Simular ${esc(r.label)}</a>`).join('')}</div></div>
-    ${waiting.length ? `<div class="notice-live" role="status">${waiting.map(c => esc(c.name) + ' pediu atendimento humano.').join(' ')}</div>` : ''}
+    ${waitingCount ? `<button type="button" class="btn btn-ghost queue-notice" id="openWaiting">
+      ${waitingCount === 1 ? '1 pessoa aguardando atendimento humano' : waitingCount + ' pessoas aguardando atendimento humano'}
+      <span aria-hidden="true">→</span></button>` : ''}
     <div id="cbody"></div></div>`;
   drawConvoBody(position);
+  $('#openWaiting')?.addEventListener('click', () => {
+    ui.tp = 'Aguardando atendimento';
+    ui.conv = waiting[0].id;
+    ui.q = '';
+    ui.mobileDetail = true;
+    drawConvoBody();
+  });
   $('.c-items').scrollTop = scroll;
   const input = inputId && $('#' + inputId);
   if (input) {
@@ -41,7 +57,7 @@ const visitGoalBadge = c => c.visit_confirmed ? '<span class="pill wa">Visita ag
 
 function conversationRow(c) {
   const last = c.messages.at(-1);
-  const status = c.blocked ? 'Bloqueado por spam' : statusLabel(c.status);
+  const status = c.blocked ? 'Bloqueado por spam' : c.operator_name ? 'Com ' + c.operator_name : statusLabel(c.status);
   return `<button type="button" class="c-item" data-id="${esc(c.id)}" aria-current="${c.id === ui.conv}">
     <span class="top"><span class="pill wa">${conversationChannel(c.channel)}</span><time>${clockTime(last?.created_at || c.created_at)}</time></span>
     ${contactLabel(c)}<span class="last">${esc(last?.content || last?.attachment_name || 'Conversa iniciada')}</span>
@@ -52,10 +68,11 @@ function drawConvoBody(position) {
   const selectedStatus = {[statusLabel('lumi')]:'lumi','Aguardando atendimento':'aguardando','Atendimento humano':'humano'}[ui.tp];
   const query = ui.q.trim().toLowerCase();
   const idQuery = query.replace(/^#\s*/, '');
-  const list = convos.filter(c => (!selectedStatus || c.status === selectedStatus) &&
+  const list = (selectedStatus === 'aguardando' ? waitingConversations() : convos).filter(c => (!selectedStatus || c.status === selectedStatus) &&
     (c.name.toLowerCase().includes(query) || (idQuery && [c.contact_id, c.id].some(id => id?.toLowerCase().includes(idQuery)))));
-  if (!list.some(c => c.id === ui.conv)) ui.conv = list[0]?.id || '';
-  const c = list.find(c => c.id === ui.conv);
+  const claimed = selectedStatus === 'aguardando' && convos.find(c => c.id === ui.conv && c.status === 'humano' && c.can_reply);
+  if (!claimed && !list.some(c => c.id === ui.conv)) ui.conv = list[0]?.id || '';
+  const c = claimed || list.find(c => c.id === ui.conv);
   displayedConversation = c?.id;
   const listTop = $('.c-items')?.scrollTop || 0;
   const searchFocused = document.activeElement?.id === 'cq';
@@ -66,6 +83,7 @@ function drawConvoBody(position) {
       <div class="list-heading"><span class="count">${list.length} ${list.length === 1 ? 'atendimento' : 'atendimentos'}</span>
       <div class="conversation-tabs" role="group" aria-label="Filtrar conversas">
         <button type="button" data-filter="" aria-pressed="${!selectedStatus}">Todas</button>
+        <button type="button" data-filter="Aguardando atendimento" aria-pressed="${selectedStatus === 'aguardando'}">Aguardando</button>
         <button type="button" data-filter="Atendimento humano" aria-pressed="${selectedStatus === 'humano'}">Com atendente</button>
       </div></div>
       <div class="conversation-search">${searchIco}<input class="input" id="cq" aria-label="Buscar por nome ou ID" placeholder="Buscar por nome ou ID" value="${esc(ui.q)}"></div>
@@ -78,6 +96,7 @@ function drawConvoBody(position) {
   if (searchFocused) { $('#cq').focus({preventScroll:true}); $('#cq').setSelectionRange(cursor, cursor); }
   document.querySelectorAll('.conversation-tabs button').forEach(button => button.onclick = () => {
     ui.tp = button.dataset.filter;
+    if (ui.tp === 'Aguardando atendimento') ui.conv = '';
     drawConvoBody();
     document.querySelector('.conversation-tabs [aria-pressed="true"]')?.focus({preventScroll:true});
   });
@@ -175,7 +194,7 @@ function conversationDetail(c) {
     <div class="d-top">
       <button type="button" class="btn btn-ghost btn-sm back" aria-label="Voltar aos atendimentos">‹</button>
       <span class="ini" aria-hidden="true">${esc(initials)}</span>
-      <div class="d-id"><h2>${contactLabel(c)}</h2><p class="d-sub"><b class="${esc(c.status)}">${esc(statusLabel(c.status))}</b><span>${conversationChannel(c.channel)}</span> ${visitGoalBadge(c)}</p></div>
+      <div class="d-id"><h2>${contactLabel(c)}</h2><p class="d-sub"><b class="${esc(c.status)}">${esc(human && c.operator_name ? 'Atendimento com ' + c.operator_name : statusLabel(c.status))}</b><span>${conversationChannel(c.channel)}</span> ${visitGoalBadge(c)}</p></div>
       <div class="handover-actions">
         ${readonly ? '' : human ? (canReply ? '<button class="btn btn-ghost btn-sm" id="release">Devolver à ' + esc(assistantName()) + '</button>' : '') : '<button class="btn btn-primary btn-sm" id="take">Assumir atendimento</button>'}
         ${c.blocked && !readonly ? '<button class="btn btn-danger btn-sm" id="unblock">Desbloquear contato</button>' : ''}

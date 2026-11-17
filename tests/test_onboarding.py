@@ -129,16 +129,20 @@ class OnboardingTest(unittest.TestCase):
             ))
             handover.endpoint = features.ASSISTED_HANDOVER_ENDPOINT
         endpoint = "/api/client/" + self.token
-        replies = [{"reply": "A equipe poderá responder por aqui. Posso continuar ajudando.", "action": "handover"},
+        replies = [{"reply": "Quer que eu encaminhe para a equipe?", "action": "offer_handover"},
+                   {"reply": "A equipe poderá responder por aqui. Posso continuar ajudando.", "action": "handover"},
                    {"reply": "Enquanto isso, posso consultar os ingressos.", "action": "none"}]
         with patch.object(client, "reply", side_effect=replies) as model:
             self.admin.post(endpoint + "/messages", json={"content": "Quero falar com um atendente."}).raise_for_status()
+            self.assertEqual(self.admin.get(endpoint).json()["status"], "lumi")
+            self.admin.post(endpoint + "/messages", json={"content": "Sim, pode encaminhar."}).raise_for_status()
+            self.assertIn("Há uma oferta de transferência pendente", model.call_args.args[0])
             self.admin.post(endpoint + "/messages", json={"content": "Quero falar com um atendente sobre ingressos."}).raise_for_status()
             self.assertIn("já está na fila", model.call_args.args[0])
             self.assertEqual(self.admin.get(endpoint).json()["status"], "aguardando")
             self.admin.post(f"/api/admin/conversations/{self.cid}/claim").raise_for_status()
             self.admin.post(endpoint + "/messages", json={"content": "Boa tarde"}).raise_for_status()
-            self.assertEqual(model.call_count, 2)
+            self.assertEqual(model.call_count, 3)
         self.assertEqual(self.admin.get(endpoint).json()["status"], "humano")
         with self.Session() as db:
             count = len(list(db.scalars(select(FeatureCall).where(FeatureCall.conversation_id == self.cid))))
@@ -147,9 +151,10 @@ class OnboardingTest(unittest.TestCase):
     def test_assisted_alert_uses_only_the_topic_and_protected_conversation_link(self):
         import os
         from app import client, features
-        from app.models import Conversation, Feature
+        from app.models import Conversation, Feature, Message
+        from app.handover_offer import HandoverOffer
         from app.whatsapp import handover_alerts as alerts
-        from app.whatsapp.models import Channel, Chat
+        from app.whatsapp.models import Channel, Chat, Outbox
 
         with self.Session.begin() as db:
             chat = db.get(Conversation, self.cid)
@@ -167,11 +172,46 @@ class OnboardingTest(unittest.TestCase):
                 patch.object(alerts, "send_handover_template", return_value="wamid.synthetic") as outbound:
             self.admin.post("/api/client/" + self.token + "/messages",
                             json={"content": "Quero falar com um atendente sobre meu pedido."}).raise_for_status()
+            self.assertEqual(self.admin.get("/api/client/" + self.token).json()["status"], "lumi")
+            self.assertFalse(alerts.deliver_alert())
+            with self.Session.begin() as db:
+                offer = db.get(HandoverOffer, self.cid)
+                db.merge(Outbox(message_id=offer.message_id, status="sent"))
+            self.admin.post("/api/client/" + self.token + "/messages",
+                            json={"content": "Sim, pode encaminhar."}).raise_for_status()
+            self.assertFalse(alerts.deliver_alert())
+            with self.Session.begin() as db:
+                mid = db.scalar(select(Message.id).where(Message.conversation_id == self.cid,
+                    Message.sender == "lumi").order_by(Message.created_at.desc()).limit(1))
+                db.merge(Outbox(message_id=mid, status="sent"))
             self.assertTrue(alerts.deliver_alert())
             self.assertFalse(alerts.deliver_alert())
         outbound.assert_called_once_with("123456", "FAKE_WA_TOKEN", "15555550123", "handover_alert",
                                         "Pagamento ou pedido",
                                         f"https://admin.example.test/admin?tenant={tid}&conversation={self.cid}#conversas")
+
+    def test_two_operators_can_own_different_conversations(self):
+        from app.console_setup import provision
+        from app.models import Conversation, VisitorSession
+        from app.db import Session
+
+        provision("operator2@example.test", "Segunda operadora", "rincao", "admin", "demo-admin-password")
+        operator = TestClient(self.admin.app)
+        try:
+            operator.post("/api/login", json={"email": "operator2@example.test", "password": "demo-admin-password"}).raise_for_status()
+            another = self.admin.post("/api/public/rincao/start", json={"name": "Outro contato"}).json()["token"]
+            with Session() as db:
+                other_id = db.get(VisitorSession, another).conversation_id
+            path = "/api/admin/conversations"
+            self.admin.post(f"{path}/{self.cid}/claim").raise_for_status()
+            operator.post(f"{path}/{other_id}/claim").raise_for_status()
+            self.assertEqual(operator.post(f"{path}/{self.cid}/claim").status_code, 409)
+            chats = {c["id"]: c for c in self.admin.get(path).json()}
+            self.assertTrue(chats[self.cid]["can_reply"])
+            self.assertFalse(chats[other_id]["can_reply"])
+            self.assertEqual(chats[other_id]["operator_name"], "Segunda operadora")
+        finally:
+            operator.close()
 
     def test_spontaneous_intent_name_completion_and_return(self):
         prompt = self.send("Quero valores dos ingressos", [{"objective_id": self.reason,

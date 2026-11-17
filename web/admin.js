@@ -290,11 +290,11 @@ const statusLabel = (s) =>
     humano: "Atendimento humano",
   })[s];
 function updateHandoverCount() {
-  const count = convos.filter((c) => c.status === "aguardando").length;
+  const count = new Set(convos.filter(c => c.status === "aguardando").map(c => c.contact_id || c.id)).size;
   const badge = $("#handoverCount");
   badge.textContent = count ? String(count) : "";
   badge.hidden = count === 0;
-  badge.setAttribute("aria-label", `${count} ${count === 1 ? "pedido aguardando atendimento humano" : "pedidos aguardando atendimento humano"}`);
+  badge.setAttribute("aria-label", `${count} ${count === 1 ? "pessoa aguardando atendimento humano" : "pessoas aguardando atendimento humano"}`);
 }
 async function refresh(redraw = true) {
   if (!me || refreshing) return;

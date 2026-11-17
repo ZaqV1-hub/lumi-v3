@@ -1,7 +1,7 @@
 from .models import Contact, KnowledgeItem, Message, Tenant
 
 
-def build_prompt(tenant: Tenant, contact: Contact, knowledge: list[KnowledgeItem], history: list[Message], name_confirmed: bool = True, onboarding_context: str = "", role_instructions: str = "", *, native_handover: bool = False) -> str:
+def build_prompt(tenant: Tenant, contact: Contact, knowledge: list[KnowledgeItem], history: list[Message], name_confirmed: bool = True, onboarding_context: str = "", role_instructions: str = "", *, native_handover: bool = False, handover_confirmation: str = "") -> str:
     facts = "\n".join(f"- {item.title}: {item.content}" for item in knowledge) or "Nenhuma informação cadastrada."
     dialogue = "\n".join(f"{item.sender}" + (" (resposta anterior não concluída)" if getattr(item, "response_failed", False) else "") + f": {item.content}" for item in history)
     handover_rule = (
@@ -11,6 +11,10 @@ def build_prompt(tenant: Tenant, contact: Contact, knowledge: list[KnowledgeItem
         'Escolha action="handover" apenas se houver funcionalidade habilitada e o cliente pedir claramente atendimento humano. '
         'Menções, dúvidas genéricas e pedidos negados não acionam funcionalidades.'
     )
+    if handover_confirmation:
+        handover_rule = ('Primeiro responda o que puder. Se o cliente quiser falar com a equipe ou a dúvida exigir confirmação dela, use action="offer_handover" e pergunte se quer ser encaminhado. A oferta não abre a fila. '
+                         'Somente use action="handover" se o servidor informar oferta pendente e a mensagem atual aceitar claramente essa oferta. '
+                         'Uma resposta a outra pergunta ou um pedido inicial sem oferta pendente não confirma a transferência. Se o cliente hesitar, recusar ou mudar de assunto, siga ajudando.')
     return f"""Você é a Lumi e está conversando com um contato de uma única empresa.
 Use apenas o contexto fornecido aqui. Não invente dados internos, preços, pessoas ou políticas.
 Se não souber uma informação, use as capacidades autorizadas quando pertinentes ou informe o limite com naturalidade.

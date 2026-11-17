@@ -21,6 +21,7 @@ from .reply_delivery import save_reply
 from .documents import MessageDocument, available_documents, document_context
 from .whatsapp.follow_up import schedule
 from .whatsapp.handover_alerts import enqueue as enqueue_handover_alert
+from .handover_offer import HandoverOffer, pending_offer
 from .schemas import Start, TextInput
 from .conversations import conversation, messages, visitor
 from .features import (
@@ -101,7 +102,7 @@ def client_messages(token: str):
         }
 
 
-def handover(tid, cid, role, reason, response, revision, source_features=(), *, topic=None):
+def handover(tid, cid, role, reason, response, revision, source_features=(), *, topic=None, cutoff=None):
     from sqlalchemy import update
 
     with admission_lock, Session.begin() as db:
@@ -118,6 +119,12 @@ def handover(tid, cid, role, reason, response, revision, source_features=(), *, 
             raise HTTPException(
                 403, "Atendimento humano indisponível para este contato"
             )
+        if feature.endpoint == ASSISTED_HANDOVER_ENDPOINT:
+            offer = pending_offer(db, tid, cid, revision, cutoff) if cutoff else None
+            if not offer:
+                return {"ok": True}
+            topic = offer.topic or topic
+            db.delete(offer)
         changed = db.execute(
             update(Conversation)
             .where(
@@ -290,10 +297,15 @@ def answer_message(token, data, cutoff, revision):
             f["updates_name"] and f["value"] for f in onboarding["fields"])
         assisted = any(f.name == "handover" and f.endpoint == ASSISTED_HANDOVER_ENDPOINT
                        and role in f.roles.split(",") for f in features)
+        confirmation = ""
+        if assisted and not waiting:
+            explicit_handover = False
+            confirmation = "confirm" if pending_offer(db, tid, cid, revision, cutoff) else "offer"
         prompt = build_prompt(
             tenant, contact, facts, history, name_confirmed=name_confirmed,
             onboarding_context=prompt_context(onboarding, data.content),
             role_instructions=role_prompt(db, tid, role),
+            handover_confirmation=confirmation,
             native_handover=any(
                 f.name == "handover" and f.endpoint in {NATIVE_HANDOVER_ENDPOINT, ASSISTED_HANDOVER_ENDPOINT}
                 and role in f.roles.split(",")
@@ -302,8 +314,10 @@ def answer_message(token, data, cutoff, revision):
         )
         if waiting:
             prompt += "\nO pedido de atendimento humano já está na fila. Nenhum operador assumiu esta conversa. Continue ajudando normalmente e evite novos encaminhamentos ou repetir o aviso a cada mensagem."
-        elif assisted:
-            prompt += "\nAo colocar a conversa na fila humana, explique com naturalidade que ninguém assumiu ainda, que a equipe poderá entrar em contato por aqui quando disponível e que você continua ajudando até lá."
+        elif confirmation == "confirm":
+            prompt += "\nHá uma oferta de transferência pendente. Se a mensagem atual a aceitar, confirme o encaminhamento e diga que continuará ajudando até a equipe assumir."
+        elif confirmation == "offer":
+            prompt += "\nNenhuma oferta de transferência está pendente. Se oferecer atendimento humano, faça apenas a pergunta de confirmação, sem dizer que já encaminhou."
         prompt += "\nFuncionalidades nativas habilitadas: " + "; ".join(
             f.description for f in features if role in f.roles.split(",") and not db.get(ToolContract, f.id)
         )
@@ -363,6 +377,7 @@ def answer_message(token, data, cutoff, revision):
         kwargs = {"images": visual_data} if visual_data else {}
         if assisted and not waiting:
             kwargs["handover_topic"] = True
+            kwargs["handover_confirmation"] = confirmation
         if tools: kwargs["tools"] = tools
         if document_ids:
             kwargs["document_ids"] = document_ids
@@ -389,6 +404,7 @@ def answer_message(token, data, cutoff, revision):
             tool_reply_options = {"images": visual_data} if visual_data else {}
             if assisted and not waiting:
                 tool_reply_options["handover_topic"] = True
+                tool_reply_options["handover_confirmation"] = confirmation
             answer = reply(prompt, tenant_id=tid, **tool_reply_options)
             if isinstance(answer, dict) and answer.get("action") == "call_tool":
                 raise RuntimeError("Limite de ferramentas atingido")
@@ -429,14 +445,18 @@ def answer_message(token, data, cutoff, revision):
         if answer.get("action") in {"send_image", "send_image_and_document"}:
             image_id = answer.get("image_id")
         answer = answer["reply"]
-    if not waiting and (explicit_handover or profile_answer.get("action") == "handover"):
+    if not waiting and (explicit_handover or profile_answer.get("action") == "handover"
+                        and confirmation != "offer"):
         if called_tool:
             with Session() as db:
                 feature = db.scalar(select(Feature).where(Feature.tenant_id == tid, Feature.name == called_tool))
                 if feature:
                     source_features.add(feature.id)
         return handover(tid, cid, role, data.content, answer, revision, source_features,
-                        topic=profile_answer.get("handover_topic"))
+                        topic=profile_answer.get("handover_topic"), cutoff=cutoff)
+    offering = bool(confirmation and profile_answer.get("action") in {"offer_handover", "handover"})
+    if confirmation == "offer" and profile_answer.get("action") == "handover":
+        answer = "Você quer que eu encaminhe esta conversa para a equipe?"
     with admission_lock, Session.begin() as db:
         # Compare-and-set no banco: resposta em andamento não pode passar pelo handover.
         from sqlalchemy import update
@@ -496,6 +516,12 @@ def answer_message(token, data, cutoff, revision):
             response_messages = save_reply(db, tid, cid, answer, revision, has_image=image is not None,
                                            has_document=document is not None, track_revision=waiting)
             message = response_messages[-1]
+            if confirmation:
+                if offering:
+                    db.merge(HandoverOffer(conversation_id=cid, message_id=message.id,
+                                          revision=revision, topic=profile_answer.get("handover_topic")))
+                elif (prior_offer := db.get(HandoverOffer, cid)):
+                    db.delete(prior_offer)
             if called_tool:
                 feature = db.scalar(select(Feature).where(Feature.tenant_id == tid, Feature.name == called_tool))
                 if feature:
@@ -508,5 +534,6 @@ def answer_message(token, data, cutoff, revision):
                 db.add(MessageImage(message_id=photo_message.id, image_id=image.id))
             if document:
                 db.add(MessageDocument(message_id=message.id, document_id=document.id))
-            schedule(db, message, scoped_message_id(tid, cid), revision)
+            if not offering:
+                schedule(db, message, scoped_message_id(tid, cid), revision)
     return {"ok": True}

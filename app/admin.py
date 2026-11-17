@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func
 from .access import current_user
 from .db import Session
-from .models import Conversation, Contact, Message, MessageAuthor, Tenant, KnowledgeItem
+from .models import Conversation, Contact, FeatureCall, Message, MessageAuthor, Tenant, KnowledgeItem, User
 from .schemas import TextInput, Settings, Knowledge, ContactRole
 from .conversations import conversation, messages, timestamp
 from .media_models import TenantPreferences, ContactGate, ConversationControl
@@ -47,18 +47,24 @@ def conversations(user=Depends(current_user)):
         )
         calls = call_timeline(db, user.tenant_id)
         confirmed_visits = confirmed_conversations(db, user.tenant_id)
+        requested_at = dict(db.execute(select(FeatureCall.conversation_id, func.max(FeatureCall.created_at))
+            .where(FeatureCall.tenant_id == user.tenant_id, FeatureCall.feature == "handover")
+            .group_by(FeatureCall.conversation_id)).all())
         result = []
         for c in rows:
             contact = db.get(Contact, c.contact_id)
             profile = profile_state(db, user.tenant_id, c.contact_id)
             channel = channel_name(db, c.id)
             state = db.get(ConversationControl, c.id) if c.status == 'humano' else None
+            operator = db.get(User, state.operator_id) if state and state.operator_id else None
             result.append({
                 "id": c.id,
                 "contact_id": c.contact_id,
                 "profile": profile,
                 "visit_confirmed": c.id in confirmed_visits,
                 "status": c.status,
+                "operator_name": operator.name if operator else None,
+                "waiting_since": timestamp(requested_at.get(c.id) or c.created_at) if c.status == "aguardando" else None,
                 "can_reply": bool(state and state.operator_id == user.id and user.console_role != 'leitura'),
                 "name": _conversation_name(contact.name, channel, profile),
                 "role": contact.role,

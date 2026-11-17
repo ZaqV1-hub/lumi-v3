@@ -14,7 +14,7 @@ from ..db import Base, Session
 from ..models import Conversation, Message, now
 from ..tenant_runtime import enabled
 from .graph import send, send_handover_template
-from .models import Channel, Chat
+from .models import Channel, Chat, Outbox
 
 log = logging.getLogger(__name__)
 TOPICS = {
@@ -72,7 +72,9 @@ def deliver_alert():
         row = db.execute(select(HandoverAlert, Message, Channel)
             .join(Message, Message.id == HandoverAlert.message_id)
             .join(Channel, Channel.phone_number_id == HandoverAlert.phone_number_id)
-            .where(HandoverAlert.status == "pending").order_by(Message.created_at).limit(1)).first()
+            .join(Outbox, Outbox.message_id == Message.id)
+            .where(HandoverAlert.status == "pending", Outbox.status.notin_(("pending", "sending")))
+            .order_by(Message.created_at).limit(1)).first()
         if not row:
             return False
         alert, message, channel = row

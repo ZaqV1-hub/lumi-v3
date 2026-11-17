@@ -31,7 +31,7 @@ CODEX_CONFIG = {
 }
 
 
-def reply(prompt: str, tools=None, images=None, *, tenant_id=None, document_ids=(), follow_up=False, handover_topic=False):
+def reply(prompt: str, tools=None, images=None, *, tenant_id=None, document_ids=(), follow_up=False, handover_topic=False, handover_confirmation=""):
     config = configuration(tenant_id)
     provider, model = config.provider, config.model
     if provider == "demo":
@@ -67,6 +67,11 @@ def reply(prompt: str, tools=None, images=None, *, tenant_id=None, document_ids=
         schema["required"].append("document_id")
     if follow_up:
         schema["properties"]["action"]["enum"] = ["none", "skip_follow_up"]
+    if handover_confirmation:
+        actions = schema["properties"]["action"]["enum"]
+        actions.append("offer_handover")
+        if handover_confirmation == "offer":
+            actions.remove("handover")
     if handover_topic:
         from .whatsapp.handover_alerts import TOPICS
 

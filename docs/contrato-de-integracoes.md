@@ -28,7 +28,11 @@ A funcionalidade `handover` com destino `native:queue` usa a fila de conversas d
 
 Com `native:assist`, a conversa continua na fila e a Lumi pode responder até
 um operador assumir. A troca invalida respostas em processamento. A
-configuração privada `LUMI_HANDOVER_ALERTS` associa o ID do tenant ao
+oferta de encaminhamento fica vinculada à conversa e à revisão atual. A fila
+e o aviso são criados depois que o cliente aceita uma oferta anterior. Nos
+canais externos, a oferta precisa ter registro de envio. A oferta vence em
+24 horas e é consumida no encaminhamento.
+A configuração privada `LUMI_HANDOVER_ALERTS` associa o ID do tenant ao
 `phone_number_id`, ao `recipient`, à origem HTTPS `admin_url` e, quando
 aprovado, ao `template` em pt-BR com dois campos de corpo para assunto e link.
 O link exige login e as permissões do tenant. O aviso contém um assunto
