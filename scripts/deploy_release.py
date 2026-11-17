@@ -19,6 +19,7 @@ BRANCHES = {"develop": "HML", "main": "PROD"}
 REQUIRED = {"app/main.py", "app/whatsapp/webhook.py", "web/console.html",
             "requirements.txt", "requirements-vm.lock"}
 EXTRA = {"requirements.txt", "requirements-vm.lock", "scripts/deploy_release.py",
+         "scripts/export-analytics.py", "scripts/configure-reply-delivery.py",
          "scripts/windows/deploy-release.ps1", "docs/privacy-policy.html",
          "docs/privacy-policy-draft.html"}
 
@@ -150,6 +151,26 @@ def backup_database(root, environment, release_id):
     partial.rename(destination)
 
 
+def migrate_whatsapp_follow_up(root, environment, release_id):
+    if not release_id or not re.fullmatch(r"gha-[0-9a-f]{12}-\d+-\d+", release_id):
+        raise ValueError("Identificador de migração inválido")
+    url = database_config(root, environment)
+    os.environ["DATABASE_URL"] = url.render_as_string(hide_password=False)
+    sys.path.insert(0, str(root / "releases" / release_id))
+    from app.db import Base, engine
+    from app.documents import DocumentAsset, MessageDocument
+    from app.visit_goal import VisitGoal
+    from app.whatsapp.calling_setup import prepare_schema as prepare_calling_schema
+    from app.whatsapp.follow_up import FollowUp, FollowUpChannel
+
+    with engine.begin() as connection:
+        Base.metadata.create_all(connection, tables=[
+            DocumentAsset.__table__, MessageDocument.__table__, FollowUpChannel.__table__,
+            FollowUp.__table__, VisitGoal.__table__
+        ])
+        prepare_calling_schema(connection)
+
+
 def health(root, environment):
     import psycopg
     url = database_config(root, environment)
@@ -178,7 +199,7 @@ def health(root, environment):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=["package", "prepare", "backup", "health"])
+    parser.add_argument("operation", choices=["package", "prepare", "backup", "migrate-whatsapp-follow-up", "health"])
     parser.add_argument("--environment", choices=["HML", "PROD"])
     parser.add_argument("--commit")
     parser.add_argument("--branch", choices=list(BRANCHES))
@@ -202,6 +223,8 @@ def main():
         if not args.release_id or not re.fullmatch(r"gha-[0-9a-f]{12}-\d+-\d+", args.release_id):
             raise ValueError("Identificador de backup inválido")
         backup_database(root, args.environment, args.release_id)
+    elif args.operation == "migrate-whatsapp-follow-up":
+        migrate_whatsapp_follow_up(root, args.environment, args.release_id)
     else:
         health(root, args.environment)
     print(json.dumps({"operation": args.operation, "environment": args.environment, "ok": True}))

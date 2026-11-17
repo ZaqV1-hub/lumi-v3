@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func
 from .access import current_user
@@ -5,14 +6,30 @@ from .db import Session
 from .models import Conversation, Contact, Message, MessageAuthor, Tenant, KnowledgeItem
 from .schemas import TextInput, Settings, Knowledge, ContactRole
 from .conversations import conversation, messages, timestamp
-from .media_models import TenantPreferences, ContactGate
+from .media_models import TenantPreferences, ContactGate, ConversationControl
 from .spam import admission_lock, control
 from .whatsapp.models import Chat
 from .channels import channel_name
+from .tenant_runtime import assistant_name
 from .onboarding import profile_state
+from .visit_goal import confirmed_conversations
 from .role_instructions import RoleInstruction
+from .whatsapp.calling import lock_conversation, has_active_call
+from .whatsapp.calling_timeline import call_timeline, with_calls
 
 router = APIRouter()
+
+
+def _conversation_name(name, channel, profile):
+    if channel != "whatsapp":
+        return name
+    name_fields = [field for field in profile["fields"] if field["updates_name"]]
+    if name_fields:
+        name = next((field["value"] for field in name_fields if field["value"]), "")
+    name = name.strip()
+    if not name or re.fullmatch(r"[+\d().\s-]+", name):
+        return "Nome não informado"
+    return name
 
 
 @router.get("/api/admin/conversations")
@@ -28,30 +45,40 @@ def conversations(user=Depends(current_user)):
             .order_by(func.coalesce(activity.c.latest, Conversation.created_at).desc(),
                       Conversation.created_at.desc(), Conversation.id.desc())
         )
-        return [
-            {
+        calls = call_timeline(db, user.tenant_id)
+        confirmed_visits = confirmed_conversations(db, user.tenant_id)
+        result = []
+        for c in rows:
+            contact = db.get(Contact, c.contact_id)
+            profile = profile_state(db, user.tenant_id, c.contact_id)
+            channel = channel_name(db, c.id)
+            state = db.get(ConversationControl, c.id) if c.status == 'humano' else None
+            result.append({
                 "id": c.id,
-                "profile": profile_state(db, user.tenant_id, c.contact_id),
+                "contact_id": c.contact_id,
+                "profile": profile,
+                "visit_confirmed": c.id in confirmed_visits,
                 "status": c.status,
-                "name": db.get(Contact, c.contact_id).name,
-                "role": db.get(Contact, c.contact_id).role,
-                "channel": channel_name(db, c.id),
+                "can_reply": bool(state and state.operator_id == user.id and user.console_role != 'leitura'),
+                "name": _conversation_name(contact.name, channel, profile),
+                "role": contact.role,
+                "channel": channel,
                 "created_at": timestamp(c.created_at),
                 "blocked": bool(
                     db.get(ContactGate, c.contact_id)
                     and db.get(ContactGate, c.contact_id).blocked
                 ),
-                "messages": messages(db, user.tenant_id, c.id),
-            }
-            for c in rows
-        ]
+                "messages": with_calls(messages(db, user.tenant_id, c.id), calls.get(c.id)),
+            })
+        return result
 
 
 @router.get("/api/admin/conversations/{cid}")
 def detail(cid: str, user=Depends(current_user)):
     with Session() as db:
         c = conversation(db, user.tenant_id, cid)
-        return {"status": c.status, "messages": messages(db, user.tenant_id, cid)}
+        calls = call_timeline(db, user.tenant_id, cid)
+        return {"status": c.status, "messages": with_calls(messages(db, user.tenant_id, cid), calls.get(cid))}
 
 
 @router.put("/api/admin/conversations/{cid}/role")
@@ -73,7 +100,7 @@ def change_role(cid: str, data: ContactRole, user=Depends(current_user)):
 @router.post("/api/admin/conversations/{cid}/claim")
 def claim(cid: str, user=Depends(current_user)):
     with admission_lock, Session.begin() as db:
-        c = conversation(db, user.tenant_id, cid)
+        c = lock_conversation(db, user.tenant_id, cid)
         state = control(db, cid)
         if state.operator_id and state.operator_id != user.id:
             raise HTTPException(409, "Outro operador está atendendo esta conversa")
@@ -95,7 +122,9 @@ def claim(cid: str, user=Depends(current_user)):
 @router.post("/api/admin/conversations/{cid}/release")
 def release(cid: str, user=Depends(current_user)):
     with admission_lock, Session.begin() as db:
-        c = conversation(db, user.tenant_id, cid)
+        c = lock_conversation(db, user.tenant_id, cid)
+        if has_active_call(db, tenant_id=user.tenant_id, conversation_id=cid):
+            raise HTTPException(409, f"Encerre a ligação e aguarde a confirmação antes de devolver à {assistant_name(db.get(Tenant, user.tenant_id))}")
         state = control(db, cid)
         if state.operator_id and state.operator_id != user.id:
             raise HTTPException(
@@ -107,7 +136,7 @@ def release(cid: str, user=Depends(current_user)):
                     tenant_id=user.tenant_id,
                     conversation_id=cid,
                     sender="sistema",
-                    content=f"{user.name} saiu da conversa. A Lumi voltou ao atendimento.",
+                    content=f"{user.name} saiu da conversa. A {assistant_name(db.get(Tenant, user.tenant_id))} voltou ao atendimento.",
                 )
             )
             c.status = "lumi"

@@ -64,3 +64,16 @@ Referência de implementação: [exemplos oficiais da Meta para a WhatsApp Cloud
 Os webhooks de status agora registram `sent`, `delivered`, `read` e `failed`. O admin distingue “Aceito pela Meta” de “Entregue no WhatsApp” e exibe o código da falha. Confirmações fora de ordem não rebaixam leitura para envio. Se o status chegar antes de a resposta HTTP de envio terminar, ele é reconciliado ao concluir a entrega.
 
 No teste desta instalação, a Meta aceitou a requisição, mas retornou depois o erro `130497`, informando uma restrição da conta empresarial para destinatários daquele país. O código não contorna essa restrição: ela precisa ser resolvida na conta da Meta. Até lá, a entrada de mensagens pode funcionar e a saída continuar bloqueada.
+# Retomada e PDFs
+
+O receptor pode agendar uma retomada por resposta da Lumi que ficou sem retorno. A contagem começa quando a Meta aceita a última parte da resposta. Após cinco minutos, a Lumi usa o histórico da conversa para escrever uma mensagem de continuação. Uma nova mensagem, mudança para atendimento humano, bloqueio ou desativação cancela o envio. O agendamento é gravado no banco, vale para novas respostas após a habilitação e expira dentro da janela de atendimento do WhatsApp. A retomada não agenda outra retomada.
+
+Para tenants com objetivo de visita cadastrado em `tenant_visit_goals`, uma reserva confirmada pela ferramenta configurada marca a conversa como **Visita agendada** no painel e suprime a retomada da resposta àquela mensagem. Uma nova mensagem do cliente pode iniciar outra contagem. A marca é baseada no histórico auditado da ferramenta e também aparece em conversas anteriores com confirmação registrada. A publicação cria a tabela de configuração antes de iniciar a nova versão. O cadastro é por ambiente e vincula o tenant à ferramenta de confirmação de visita.
+
+A publicação cria as tabelas aditivas `whatsapp_follow_up_channels`, `whatsapp_follow_ups`, `document_assets` e `message_documents` após o backup do banco do ambiente. Elas não alteram colunas existentes. O cadastro é por empresa e canal. Com o ambiente HML carregado, use `python -m app.whatsapp.follow_up_setup SLUG --pdf ARQUIVO --filename NOME.pdf --title TITULO --description DESCRICAO`. O arquivo fica no banco da empresa e a Meta recebe o PDF como documento, com nome e legenda. Para interromper as retomadas e retirar os PDFs do catálogo dessa empresa, execute o mesmo módulo com `SLUG --disable`. Mensagens e anexos históricos são preservados.
+
+## Anexos no atendimento humano
+
+Depois de assumir uma conversa, o operador pode anexar imagem, gravar ou anexar áudio, enviar vídeo MP4 e, no WhatsApp, enviar PDF. Imagem, vídeo e PDF aceitam legenda. A gravação do navegador é convertida para MP3; o vídeo usa H.264 e, se tiver som, AAC. Os limites do painel são 5 MB para imagem, 12 MB e dois minutos para áudio, e 16 MB para vídeo ou PDF. No Instagram Direct, os anexos usam a URL HTTPS temporária já usada para imagens. Comentários públicos continuam com texto.
+
+O painel grava a mensagem, o autor, o anexo e a fila de entrega na mesma transação. O anexo usa o armazenamento existente de mídia da conversa, sem migração de banco. Se o upload for repetido com a mesma chave e o mesmo conteúdo, a mensagem anterior é reaproveitada. Reverter o código não apaga mídia já enviada.

@@ -160,6 +160,7 @@ class FlowTest(unittest.TestCase):
                         return_value={
                             "reply": "Aqui está o mapa",
                             "action": "send_image",
+                            "image_intent": "send_catalog",
                             "image_id": image_id,
                         },
                     ):
@@ -179,6 +180,7 @@ class FlowTest(unittest.TestCase):
                         return_value={
                             "reply": "Imagem",
                             "action": "send_image",
+                            "image_intent": "send_catalog",
                             "image_id": image_id,
                         },
                     ):

@@ -7,6 +7,7 @@ import urllib.request
 from sqlalchemy import select
 from .db import Session
 from .models import Feature, FeatureCall
+from .analytics_models import scoped_message_id
 
 
 def asks_for_human(text):
@@ -71,6 +72,7 @@ def request_handover(tenant_id, conversation_id, role, reason):
                 FeatureCall(
                     tenant_id=tenant_id,
                     conversation_id=conversation_id,
+                    message_id=scoped_message_id(tenant_id, conversation_id),
                     feature="handover",
                     parameters=json.dumps(parameters),
                     result=json.dumps(result),

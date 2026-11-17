@@ -22,10 +22,16 @@ def request(operation, payload):
 $code=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{encoded}'))
 node -e $code
 exit $LASTEXITCODE"""
-    command = ["ssh", "-T", "-i", required("RINCAO_SSH_KEY_PATH"), "-o", "IdentitiesOnly=yes",
-        "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=8",
-        required("RINCAO_SSH_HOST"), "powershell", "-NoProfile", "-EncodedCommand",
-        base64.b64encode(script.encode("utf-16le")).decode()]
+    transport = os.getenv("RINCAO_COMMERCE_TRANSPORT", "ssh")
+    if transport == "local":
+        command = [os.getenv("RINCAO_COMMERCE_NODE", "node"), "-e", source]
+    elif transport == "ssh":
+        command = ["ssh", "-T", "-i", required("RINCAO_SSH_KEY_PATH"), "-o", "IdentitiesOnly=yes",
+            "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=8",
+            required("RINCAO_SSH_HOST"), "powershell", "-NoProfile", "-EncodedCommand",
+            base64.b64encode(script.encode("utf-16le")).decode()]
+    else:
+        raise RuntimeError("commerce_transport_invalid")
     result = subprocess.run(command, capture_output=True, timeout=30)
     if result.returncode:
         raise RuntimeError("commerce_remote_unavailable")

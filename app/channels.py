@@ -1,11 +1,11 @@
-from .whatsapp.models import Chat as WhatsAppChat, Outbox as WhatsAppOutbox
+from .whatsapp.models import Chat as WhatsAppChat, Outbox as WhatsAppOutbox, ArchivedChat
 from .instagram.models import Chat as InstagramChat, Outbox as InstagramOutbox
 from .instagram.comment_models import CommentJob
 from sqlalchemy import select
 
 
 def channel_name(db, conversation_id):
-    if db.get(WhatsAppChat, conversation_id):
+    if db.get(WhatsAppChat, conversation_id) or db.get(ArchivedChat, conversation_id):
         return "whatsapp"
     if db.get(InstagramChat, conversation_id):
         return "instagram"

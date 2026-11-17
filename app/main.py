@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 from hashlib import sha256
 from pathlib import Path
 import os
@@ -25,6 +26,7 @@ from .whatsapp.checkout_proxy import router as checkout_router
 from .whatsapp.admin import router as whatsapp_admin_router
 from .whatsapp.registration import router as whatsapp_registration_router
 from .incoming import router as incoming_router
+from .operator_media import router as operator_media_router
 from .usage_models import ModelCall, ResponseRun
 from .usage_routes import router as usage_router
 from .console_access import router as console_access_router
@@ -38,6 +40,9 @@ from .instagram.comment_admin import router as comment_admin_router
 from .role_instructions import router as role_instructions_router
 from .access import console_user
 from .tenant_ai_routes import router as tenant_ai_router
+from .whatsapp.calling_admin import router as calling_router
+from .whatsapp.calling_reconcile import run_reconciler
+from .whatsapp.calling_models import CALLING_TABLES
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -46,18 +51,27 @@ ROOT = Path(__file__).resolve().parent.parent
 async def lifespan(_):
     load_config()
     active_engine = Session.kw["bind"]
-    Base.metadata.create_all(active_engine)
+    Base.metadata.create_all(active_engine, tables=[table for table in Base.metadata.sorted_tables if table not in CALLING_TABLES])
     if os.getenv("LUMI_SEED_DEMO", "true").lower() in {"true", "1"}:
         seed()
     with active_engine.begin() as connection:
         connection.execute(update(ContactGate).values(pending=0))
-    yield
+    calling_worker = asyncio.create_task(run_reconciler())
+    try:
+        yield
+    finally:
+        calling_worker.cancel()
+        try:
+            await calling_worker
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="Lumi", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(onboarding_router)
 app.include_router(admin_router)
+app.include_router(calling_router)
 app.include_router(client_router)
 app.include_router(image_router)
 app.include_router(checkout_router)
@@ -65,6 +79,7 @@ app.include_router(whatsapp_admin_router)
 app.include_router(whatsapp_registration_router)
 app.include_router(instagram_admin_router)
 app.include_router(incoming_router)
+app.include_router(operator_media_router)
 app.include_router(usage_router)
 app.include_router(tenant_ai_router)
 app.include_router(console_access_router)
@@ -124,11 +139,12 @@ def home(request: Request):
 @app.get("/chat/{slug}")
 def client_page(slug: str,request: Request):
     from .access import current_user
-    if os.getenv("LUMI_PRIVATE_SIMULATOR", "false").lower() in {"true", "1"}:
-        from sqlalchemy import select
-        from .models import Tenant
-        with Session() as db:
-            tenant = db.scalar(select(Tenant).where(Tenant.slug == slug))
+    from .models import Tenant
+    from .tenant_runtime import assistant_name
+    from sqlalchemy import select
+    with Session() as db:
+        tenant = db.scalar(select(Tenant).where(Tenant.slug == slug))
+        if os.getenv("LUMI_PRIVATE_SIMULATOR", "false").lower() in {"true", "1"}:
             if not tenant:
                 raise HTTPException(404, "Empresa não encontrada")
             try:
@@ -137,15 +153,15 @@ def client_page(slug: str,request: Request):
                 if exc.status_code == 401:
                     return RedirectResponse("/admin", status_code=307)
                 raise
+        name = assistant_name(tenant) if tenant else "Lumi"
     back=False
     if request.query_params.get("tenant"):
         user=current_user(request)
         if user.console_role=="brevia":
-            from .models import Tenant
             with Session() as db:
                 if db.get(Tenant,user.tenant_id).slug!=slug:raise HTTPException(403,"Empresa diferente da selecionada")
             back=True
-    return versioned_page("client.html",back=back)
+    return versioned_page("client.html", back=back, assistant=name)
 
 
 @app.get("/console")
@@ -153,9 +169,12 @@ def console_page():
     return RedirectResponse("/admin",status_code=307)
 
 
-def versioned_page(filename,back=False,readonly=False,authenticated=False):
+def versioned_page(filename,back=False,readonly=False,authenticated=False,assistant=None):
     import re
+    from html import escape
     html = (ROOT / "web" / filename).read_text(encoding="utf-8-sig")
+    if assistant:
+        html = html.replace("{{assistant}}", escape(assistant))
     if authenticated:html=html.replace('<section id="login">','<section id="login" hidden>',1)
     if back:
         html=html.replace('<body>','<body class="operator-workspace"><header id="operatorBar"><a href="/admin#/tenants">Voltar ao console</a></header>',1)

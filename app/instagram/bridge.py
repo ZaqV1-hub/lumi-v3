@@ -1,3 +1,4 @@
+from ..reply_delivery import may_deliver
 """Adapta mensagens do Instagram ao atendimento comum, sem conceder papéis."""
 import secrets
 import unicodedata
@@ -23,7 +24,7 @@ def operator_heading(name):
 def queue_messages(db, _):
     for message in list(db.new):
         if isinstance(message, Message) and message.sender != "cliente" and db.get(Chat, message.conversation_id):
-            db.add(Outbox(message_id=message.id))
+            db.add(Outbox(message_id=message.id, created_at=message.created_at))
 
 
 def bind_sender(db, channel, sender, received_at):
@@ -167,6 +168,7 @@ def finish(profile_id, external_id, status, error=""):
 
 
 def deliver_one():
+    from ..operator_media import operator_attachment
     with admission_lock, Session.begin() as db:
         item = db.scalar(select(Outbox).where(Outbox.status == "pending").order_by(Outbox.created_at, Outbox.message_id).limit(1))
         if not item:
@@ -174,6 +176,9 @@ def deliver_one():
         item.status = "sending"
         mid = item.message_id
         message = db.get(Message, mid)
+        if not may_deliver(db, message):
+            item.status, item.error = "cancelled", "Resposta interrompida por mudança no atendimento."
+            return True
         chat = db.get(Chat, message.conversation_id)
         channel = db.get(Channel, chat.profile_id)
         if chat.last_incoming_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc) - timedelta(hours=24):
@@ -186,11 +191,13 @@ def deliver_one():
         text = f"{operator_heading(author.name)}\n{message.content}" if author else message.content
         try:
             args = (channel.profile_id, channel.token_env, chat.sender, text, public_image(db, mid))
+            operator_file = operator_attachment(db, message)
+            media = {"media_kind": operator_file.kind} if operator_file else {}
         except RuntimeError as exc:
             item.status, item.error = "failed", str(exc)
             return True
     try:
-        result = send(*args)
+        result = send(*args, **media)
         status, error = "sent", ""
     except Exception:
         result, status, error = "", "failed", "Falha no envio ao Instagram; confira a entrega antes de reenviar."

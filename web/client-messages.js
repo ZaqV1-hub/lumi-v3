@@ -27,6 +27,16 @@ function messageNode(message) {
   if (message.attachment_kind === 'audio' && message.attachment_url) {
     const audio = document.createElement('audio'); audio.controls = true; audio.preload = 'metadata'; audio.src = message.attachment_url; bubble.append(audio);
   }
+  if (message.attachment_kind === 'video' && message.attachment_url) {
+    const video = document.createElement('video');
+    video.controls = true; video.preload = 'metadata'; video.src = message.attachment_url; video.style.maxWidth = '100%';
+    bubble.append(video);
+  }
+  if (message.attachment_kind === 'document' && message.attachment_url) {
+    const link = document.createElement('a');
+    link.href = message.attachment_url; link.textContent = message.attachment_name || 'Baixar PDF';
+    bubble.append(link);
+  }
   if (message.content && !['[Imagem enviada]', '[Áudio enviado]'].includes(message.content)) {
     const content = document.createElement('div'); content.className = 'message-text' + (imageUrl ? ' cap' : '');
     appendMessageText(content, message.content); bubble.append(content);
@@ -34,6 +44,9 @@ function messageNode(message) {
   if (message.created_at) {
     const time = document.createElement('time'); time.className = 'num'; time.dateTime = message.created_at;
     time.textContent = new Date(message.created_at).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}); bubble.append(time);
+  }
+  if(message.sender==='cliente'&&message.response_status==='failed'){
+    const warning=document.createElement('small');warning.className='response-failed';warning.setAttribute('role','status');warning.textContent='A resposta não foi concluída. Sua mensagem foi salva; você pode tentar novamente.';warning.style.cssText='display:block;margin-top:8px;font-size:12px';bubble.append(warning);
   }
   row.append(bubble); return row;
 }

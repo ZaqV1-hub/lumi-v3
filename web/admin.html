@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="/static/operator-workspace.css"><link rel="stylesheet" href="/static/admin-usage.css"><link rel="stylesheet" href="/static/admin-comments.css"></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="/static/operator-workspace.css"><link rel="stylesheet" href="/static/admin-usage.css"><link rel="stylesheet" href="/static/admin-comments.css"><link rel="stylesheet" href="/static/admin-calling.css"><link rel="stylesheet" href="/static/admin-conversations.css"></head><body>
 <title>Lumi Admin</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -231,6 +231,8 @@ button{cursor:pointer}
 .c-item .top{display:flex;justify-content:space-between;align-items:center}
 .c-item .top time{font-size:12px;color:var(--ink-3)}
 .c-item b{font-size:14.5px;font-weight:600}
+.contact-label{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;max-width:100%}
+.contact-id{font-size:12px;font-weight:400;color:var(--ink-3);overflow-wrap:anywhere}
 .c-item .ph{font-size:12.5px;color:var(--ink-3);margin-top:-4px}
 .c-item .last{font-size:13.5px;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .c-item .tags{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3)}
@@ -472,7 +474,7 @@ textarea.input{min-height:200px;resize:vertical;line-height:1.7}
         <button class="user" id="userBtn" type="button" aria-haspopup="menu" aria-expanded="false"><span class="av">I</span><span class="name">Isaque</span></button>
         <div class="user-menu" id="userMenu" role="menu" hidden>
           <div class="um-id"><b>Isaque · Clube Rincão</b><span>isaque@cluberincao.com.br</span></div>
-          <button class="um-out" id="logout" type="button" role="menuitem">Sair</button>
+          <button class="um-edit" id="editProfile" type="button" role="menuitem">Alterar dados</button><button class="um-out" id="logout" type="button" role="menuitem">Sair</button>
         </div>
       </div>
     </header>
@@ -480,7 +482,11 @@ textarea.input{min-height:200px;resize:vertical;line-height:1.7}
   </div>
 </div>
 
+<dialog id="conversationPhotoDialog" aria-label="Imagem ampliada">
+  <img alt="Imagem da conversa ampliada">
+  <form method="dialog"><button type="submit" aria-label="Fechar imagem">×</button></form>
+</dialog>
 <div id="overlay" class="overlay" hidden></div>
 <style>.msg img{display:block;max-width:280px;max-height:260px;border-radius:10px;margin-top:8px}.reply-box{padding:14px;border-top:1px solid var(--line);display:flex;gap:10px}.reply-box .input{flex:1}.handover-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.notice-live{padding:12px;border-radius:10px;background:var(--teal-soft);color:var(--teal);margin-bottom:14px}.msg.system{align-self:center;background:var(--gold-soft);font-size:13px}.msg strong{display:block}.c-detail{min-height:0}.thread{min-height:100px}</style><div id="toast" class="toast" hidden></div>
 
-<script src="/static/admin.js"></script><script src="/static/admin-dashboard.js"></script><script src="/static/admin-comments.js"></script><script src="/static/admin-ai.js"></script><script src="/static/admin-config.js"></script><script src="/static/admin-roles.js"></script><script src="/static/admin-knowledge.js"></script><script src="/static/admin-images.js"></script><script src="/static/admin-onboarding.js"></script><script src="/static/admin-usage.js"></script></body></html>
+<script src="/static/admin-calling.js"></script><script src="/static/admin.js"></script><script src="/static/admin-conversations.js"></script><script src="/static/admin-profile.js"></script><script src="/static/admin-operator-media.js"></script><script src="/static/admin-dashboard.js"></script><script src="/static/admin-comments.js"></script><script src="/static/admin-ai.js"></script><script src="/static/admin-config.js"></script><script src="/static/admin-roles.js"></script><script src="/static/admin-knowledge.js"></script><script src="/static/admin-images.js"></script><script src="/static/admin-onboarding.js"></script><script src="/static/admin-usage.js"></script></body></html>

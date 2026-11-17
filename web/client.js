@@ -9,6 +9,7 @@ function startConversation(name='') {
 let token = sessionStorage.getItem(key), snapshot = '', pending = 0, refreshing = false;
 let conversationStatus = 'lumi', blocked = false, scrollAfterSend = false;
 const text = $('msg');
+const assistant = $('assistantName')?.textContent || 'Lumi';
 const icons = {
   send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l16-8-6 17-3-7z"/></svg>',
   mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0014 0v-2M12 19v3M8 22h8"/></svg>',
@@ -30,7 +31,7 @@ async function refresh() {
     const data = await api('/api/client/' + current); if (token !== current) return;
     if (data.tenant) $('company').textContent = data.tenant;
     conversationStatus = data.status; blocked = data.blocked;
-    $('status').textContent = blocked ? 'Atendimento bloqueado' : {lumi:'Lumi ativa', aguardando:'Aguardando atendente', humano:'Atendimento humano', desativada:'Lumi desativada'}[data.status] || 'Conversa';
+    $('status').textContent = blocked ? 'Atendimento bloqueado' : {lumi:assistant+' ativa', aguardando:'Aguardando atendente', humano:'Atendimento humano', desativada:assistant+' desativada'}[data.status] || 'Conversa';
     $('status').className = 'pill ' + (data.status === 'lumi' && !blocked ? 'on' : 'hum');
     const json = JSON.stringify(data.messages);
     if (json !== snapshot) { renderConversation(data.messages, scrollAfterSend); snapshot = json; scrollAfterSend = false; }

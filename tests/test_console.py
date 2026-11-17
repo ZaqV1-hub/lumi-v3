@@ -46,6 +46,30 @@ class ConsoleTest(unittest.TestCase):
         self.assertEqual(self.operator.get('/api/admin/settings',params={'tenant':'missing'}).status_code,404)
         with Session() as db:self.assertEqual(db.get(User,self.operator_id).tenant_id,self.breve)
 
+    def test_assistant_display_name_is_scoped_to_the_selected_tenant(self):
+        with Session.begin() as db:
+            db.get(Tenant, self.breve).identity = "Nome da assistente: Ana\nIdentidade de teste."
+        self.assertEqual(self.operator.get('/api/me', params={'tenant':self.breve}).json()['assistant_name'], 'Ana')
+        self.assertEqual(self.operator.get('/api/me', params={'tenant':self.rincao}).json()['assistant_name'], 'Lumi')
+        self.assertEqual(self.customer.get('/api/me').json()['assistant_name'], 'Lumi')
+        self.assertIn('<h1 id="assistantName">Ana</h1>', self.operator.get('/chat/breve').text)
+        self.assertIn('<h1 id="assistantName">Lumi</h1>', self.customer.get('/chat/rincao').text)
+
+    def test_operator_can_update_own_name_and_confirm_password(self):
+        credentials = {'email': 'isaque@rincao.local', 'password': 'demo1234'}
+        with TestClient(main.app) as other_session:
+            other_session.post('/api/login', json=credentials).raise_for_status()
+            endpoint = '/api/me/profile'
+            self.assertEqual(self.customer.put(endpoint, json={'name':'Érica'}).json(), {'name':'Érica'})
+            self.assertEqual(self.customer.get('/api/me').json()['name'], 'Érica')
+            wrong = {'name':'Outro nome', 'current_password':'demo1234', 'password':'new-password', 'confirm_password':'different'}
+            self.assertEqual(self.customer.put(endpoint, json=wrong).status_code, 422)
+            self.assertEqual(self.customer.get('/api/me').json()['name'], 'Érica')
+            self.customer.put(endpoint, json={**wrong, 'name':'Érica', 'confirm_password':'new-password'}).raise_for_status()
+            self.assertEqual(other_session.get('/api/me').status_code, 401)
+            self.assertEqual(other_session.post('/api/login', json=credentials).status_code, 401)
+            other_session.post('/api/login', json={**credentials, 'password':'new-password'}).raise_for_status()
+
     def test_temporary_password_requires_change_and_is_not_retrievable(self):
         access=self.create_access();temporary=access['temporary_password']
         self.assertNotIn(temporary,self.operator.get('/api/console/users').text)

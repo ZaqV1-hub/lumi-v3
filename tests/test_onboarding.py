@@ -51,6 +51,21 @@ class OnboardingTest(unittest.TestCase):
     def state(self):
         return self.admin.get("/api/admin/conversations/" + self.cid + "/profile").json()
 
+    def test_tool_turn_preserves_profile_extracted_before_the_call(self):
+        from app import client
+
+        evidence = "Sou Felipe e quero investir"
+        first = {"reply": "", "action": "call_tool", "tool_call": {"name": "visitas", "arguments": {}},
+                 "profile_updates": [{"objective_id": self.reason, "value": "investir", "evidence": evidence}]}
+        last = {"reply": "Encontrei algumas datas.", "action": "none", "profile_updates": [
+            {"objective_id": self.reason, "value": "morar", "evidence": "quero morar"},
+            {"objective_id": self.name, "value": "Felipe", "evidence": "Sou Felipe"}]}
+        with patch.object(client, "execute_tool", return_value={"data": {"ok": True}}) as tool:
+            self.send(evidence, effect=[first, last])
+            tool.assert_called_once()
+        self.assertEqual({f["id"]: f["value"] for f in self.state()["fields"]},
+                         {self.name: "Felipe", self.reason: "investir"})
+
     def test_handover_keeps_model_reply_before_external_call(self):
         from app import client
         for text, action in [("Quero falar com um humano", "none"), ("Pode me transferir?", "handover")]:
@@ -106,6 +121,30 @@ class OnboardingTest(unittest.TestCase):
         self.assertEqual(field["attempts"], 2)
         self.assertNotIn(self.name, state["askable"])
         self.assertFalse(state["completed"])
+
+    def test_admin_whatsapp_uses_confirmed_onboarding_name_instead_of_number(self):
+        from app.models import Contact, Conversation
+        from app.whatsapp.models import Channel, Chat
+
+        phone = "5511000000000"
+        with self.Session.begin() as db:
+            conversation = db.get(Conversation, self.cid)
+            db.get(Contact, conversation.contact_id).name = phone
+            db.add(Channel(phone_number_id="demo", tenant_id=conversation.tenant_id))
+            db.flush()
+            db.add(Chat(id=self.cid, phone_number_id="demo", sender=phone, token="demo"))
+
+        def admin_row():
+            return self.admin.get("/api/admin/conversations").json()[0]
+
+        self.assertEqual(admin_row()["name"], "Nome não informado")
+        contact_id = admin_row()["contact_id"]
+        self.assertNotEqual(contact_id, self.cid)
+        self.assertNotIn(phone, json.dumps(admin_row()))
+        self.send("Adalberto", [{"objective_id": self.name, "value": "Adalberto", "evidence": "Adalberto"}])
+        self.assertEqual(admin_row()["name"], "Adalberto")
+        self.assertEqual(admin_row()["contact_id"], contact_id)
+        self.assertNotIn(phone, json.dumps(admin_row()))
 
     def test_evidence_and_tenant_authorization(self):
         foreign = self.other.post("/api/admin/onboarding", json={"title": "Segredo",

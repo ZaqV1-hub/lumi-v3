@@ -1,0 +1,23 @@
+{
+  "tenant-demo": {
+    "secret": "REPLACE_WITH_RANDOM_PRIVATE_SECRET_32_CHARS_MINIMUM",
+    "roles": ["cliente", "gestor", "atendente"],
+    "mode": "demo",
+    "calendar_id": "broker@example.test",
+    "timezone": "America/Sao_Paulo",
+    "duration_minutes": 30,
+    "lead_minutes": 60,
+    "horizon_days": 30,
+    "hours": {
+      "0": [["09:00", "12:00"], ["14:00", "18:00"]],
+      "1": [["09:00", "12:00"], ["14:00", "18:00"]],
+      "2": [["09:00", "12:00"], ["14:00", "18:00"]],
+      "3": [["09:00", "12:00"], ["14:00", "18:00"]],
+      "4": [["09:00", "12:00"], ["14:00", "18:00"]]
+    },
+    "title": "Reunião com o corretor",
+    "create_meet": true,
+    "send_invites": false,
+    "token_file": null
+  }
+}

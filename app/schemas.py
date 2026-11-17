@@ -30,4 +30,4 @@ class Knowledge(BaseModel):
 
 
 class ContactRole(BaseModel):
-    role: str = Field(pattern="^(cliente|gestor|atendente|administrador)$")
+    role: str = Field(pattern="^(cliente|gestor|atendente|administrador|corretor)$")

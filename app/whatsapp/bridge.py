@@ -1,3 +1,5 @@
+from ..reply_delivery import may_deliver
+import re
 import secrets
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session as OrmSession
@@ -7,6 +9,9 @@ from ..media_models import MessageImage, ImageAsset
 from ..spam import admission_lock
 from .models import Channel, Chat, Inbox, Outbox, DeliveryStatus
 from .graph import send
+from ..documents import message_document
+from ..operator_media import FILENAMES, operator_attachment
+from .follow_up import arm_after_send, may_send
 
 
 @event.listens_for(OrmSession, "after_flush")
@@ -15,7 +20,7 @@ def queue_messages(db, _):
     for message in list(db.new):
         if isinstance(message, Message) and message.sender != "cliente":
             if db.get(Chat, message.conversation_id):
-                db.add(Outbox(message_id=message.id))
+                db.add(Outbox(message_id=message.id, created_at=message.created_at))
 
 
 def bind_sender(db, channel, sender, name):
@@ -25,6 +30,9 @@ def bind_sender(db, channel, sender, name):
         )
     )
     if chat:
+        existing = db.get(Conversation, chat.id)
+        if not existing or existing.tenant_id != channel.tenant_id:
+            raise RuntimeError("Vínculo de conversa incompatível com o canal.")
         return chat.token
     contact = Contact(
         tenant_id=channel.tenant_id, name=name[:120] or sender, role="cliente"
@@ -91,6 +99,7 @@ def _receive(phone_id, incoming, name, pool):
                 binary, mime = download_media(str(media.get("id", "")), token_env)
                 return validated_file(binary, mime, caption)
         receipt = receive_message(token, TextInput(content=content))
+        receipt["whatsapp_external_id"] = external_id
         if loader:
             receipt["attachment_loader"] = loader
     except Exception:
@@ -128,8 +137,17 @@ def finish_inbox(external_id, status, error=""):
         row.status, row.error = status, error
 
 
+def whatsapp_text(text):
+    return re.sub(
+        r"(```[\s\S]*?```|`[^`\n]*`|https?://\S+)|"
+        r"(?<![\\*])\*\*(?=\S)([^*\r\n]+?)(?<![\\\s])\*\*(?!\*)",
+        lambda match: match[1] or f"*{match[2]}*",
+        text,
+    )
+
+
 def deliver_one():
-    with Session.begin() as db:
+    with admission_lock, Session.begin() as db:
         item = db.scalar(
             select(Outbox)
             .where(Outbox.status == "pending")
@@ -141,14 +159,25 @@ def deliver_one():
         item.status = "sending"
         mid = item.message_id
         message = db.get(Message, mid)
+        if not may_deliver(db, message) or not may_send(db, mid):
+            item.status, item.error = "cancelled", "Resposta interrompida por mudança no atendimento."
+            return True
         chat = db.get(Chat, message.conversation_id)
-        channel = db.get(Channel, chat.phone_number_id)
-        text = message.content
+        channel = db.get(Channel, chat.phone_number_id) if chat else None
+        if not channel or message.tenant_id != channel.tenant_id:
+            item.status, item.error = "cancelled", "Canal transferido ou incompatível com esta conversa."
+            return True
+        text = whatsapp_text(message.content) if message.sender == "lumi" else message.content
         author = db.get(MessageAuthor, mid)
         if author:
             text = f"*{author.name}*\n{text}"
         attached = db.get(MessageImage, mid)
         image = db.get(ImageAsset, attached.image_id) if attached else None
+        document = message_document(db, message.tenant_id, message.conversation_id, mid)
+        attachment = {"document": (document.filename, document.data)} if document else {}
+        operator_file = operator_attachment(db, message)
+        if operator_file:
+            attachment["operator_media"] = (operator_file.kind, FILENAMES[operator_file.kind], operator_file.data, operator_file.mime)
         args = (
             channel.phone_number_id,
             channel.token_env,
@@ -157,7 +186,7 @@ def deliver_one():
             image.data if image else None,
         )
     try:
-        result = send(*args)
+        result = send(*args, **attachment)
         status, error = "sent", ""
     except Exception as exc:
         result, status, error = (
@@ -175,6 +204,7 @@ def deliver_one():
             result,
             reported.error if reported else error,
         )
+        arm_after_send(db, mid, item.status)
     return True
 
 
