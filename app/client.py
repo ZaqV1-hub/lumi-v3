@@ -22,7 +22,7 @@ from .documents import MessageDocument, available_documents, document_context
 from .whatsapp.follow_up import schedule
 from .schemas import Start, TextInput
 from .conversations import conversation, messages, visitor
-from .features import request_handover, asks_for_human
+from .features import NATIVE_HANDOVER_ENDPOINT, request_handover, asks_for_human
 from .prompt import build_prompt, image_context
 from .providers import reply
 from .onboarding import profile_state, prompt_context, save_profile
@@ -281,6 +281,10 @@ def answer_message(token, data, cutoff, revision):
             tenant, contact, facts, history, name_confirmed=name_confirmed,
             onboarding_context=prompt_context(onboarding, data.content),
             role_instructions=role_prompt(db, tid, role),
+            native_handover=any(
+                f.name == "handover" and f.endpoint == NATIVE_HANDOVER_ENDPOINT and role in f.roles.split(",")
+                for f in features
+            ),
         )
         prompt += "\nFuncionalidades nativas habilitadas: " + "; ".join(
             f.description for f in features if role in f.roles.split(",") and not db.get(ToolContract, f.id)

@@ -94,6 +94,30 @@ class OnboardingTest(unittest.TestCase):
         self.assertEqual(chat["status"], "lumi")
         self.assertFalse(any(m["sender"] == "lumi" for m in chat["messages"]))
 
+    def test_native_handover_uses_the_admin_queue_without_external_request(self):
+        from app import client, features
+        from app.models import Conversation, Feature, FeatureCall
+
+        with self.Session.begin() as db:
+            chat = db.get(Conversation, self.cid)
+            handover = db.scalar(select(Feature).where(
+                Feature.tenant_id == chat.tenant_id, Feature.name == "handover"
+            ))
+            handover.endpoint = features.NATIVE_HANDOVER_ENDPOINT
+        answer = {"reply": "Vou encaminhar sua dúvida à equipe.", "action": "handover"}
+        endpoint = "/api/client/" + self.token
+        with patch.object(client, "reply", return_value=answer) as model, \
+                patch.object(features.urllib.request, "urlopen") as external:
+            self.admin.post(endpoint + "/messages", json={"content": "Posso visitar antes?"}).raise_for_status()
+            self.assertIn("critérios do atendimento humano da empresa", model.call_args.args[0])
+            self.admin.post(endpoint + "/messages", json={"content": "Vou aguardar."}).raise_for_status()
+            model.assert_called_once()
+            external.assert_not_called()
+        self.assertEqual(self.admin.get(endpoint).json()["status"], "aguardando")
+        with self.Session() as db:
+            audit = db.scalar(select(FeatureCall).where(FeatureCall.conversation_id == self.cid))
+            self.assertEqual(json.loads(audit.result), {"accepted": True})
+
     def test_spontaneous_intent_name_completion_and_return(self):
         prompt = self.send("Quero valores dos ingressos", [{"objective_id": self.reason,
             "value": "valores dos ingressos", "evidence": "Quero valores dos ingressos"}], self.name)

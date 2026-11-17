@@ -10,6 +10,9 @@ from .models import Feature, FeatureCall
 from .analytics_models import scoped_message_id
 
 
+NATIVE_HANDOVER_ENDPOINT = "native:queue"
+
+
 def asks_for_human(text):
     text = "".join(
         c
@@ -48,17 +51,20 @@ def request_handover(tenant_id, conversation_id, role, reason):
     started = time.monotonic()
     result = {}
     try:
-        request = urllib.request.Request(
-            endpoint,
-            data=json.dumps(parameters).encode(),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": "Bearer "
-                + os.getenv("HANDOVER_SECRET", "local-demo-handover"),
-            },
-        )
-        with urllib.request.urlopen(request, timeout=8) as response:
-            result = json.load(response)
+        if endpoint == NATIVE_HANDOVER_ENDPOINT:
+            result = {"accepted": True}
+        else:
+            request = urllib.request.Request(
+                endpoint,
+                data=json.dumps(parameters).encode(),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer "
+                    + os.getenv("HANDOVER_SECRET", "local-demo-handover"),
+                },
+            )
+            with urllib.request.urlopen(request, timeout=8) as response:
+                result = json.load(response)
         if result.get("accepted") is not True:
             raise RuntimeError("O serviço não aceitou o atendimento.")
     except Exception as exc:
