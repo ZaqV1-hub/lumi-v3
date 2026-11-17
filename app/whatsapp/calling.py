@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from ..console_models import ConsoleAccount
 from ..media_models import ConversationControl
 from ..models import Conversation, LoginSession, User, now
+from ..access import session_is_idle
 from ..tenant_runtime import enabled
 from .models import Channel, Chat
 from .calling_models import CallEvent, CallOperation, CallPermission, CallingChannel
@@ -151,7 +152,7 @@ def _reserve(db, *, tenant_id, conversation_id, operator_id, idempotency_key, ki
         raise HTTPException(422, 'Sessão de chamada inválida')
     if kind == 'call':
         login = db.get(LoginSession, session_hash, populate_existing=True)
-        if not login or login.user_id != operator_id or (session_expires_at and utc(session_expires_at) <= now()):
+        if not login or login.user_id != operator_id or session_is_idle(login) or (session_expires_at and utc(session_expires_at) <= now()):
             raise HTTPException(403, 'Sessão de chamada expirada')
     arguments_hash = token_hash(json.dumps([tenant_id, conversation_id, operator_id, chat.phone_number_id,
         chat.sender, kind, token_hash(tab_token) if tab_token else None, session_hash,
@@ -249,7 +250,7 @@ def authorize_operation(db, *, tenant_id, operation_id, operator_id, tab_token, 
     chat = _context(db, tenant_id, op.conversation_id, operator_id, require_enabled=require_enabled)
     db.refresh(op)
     login = db.get(LoginSession, session_hash, populate_existing=True)
-    if (op.operator_id != operator_id or not login or login.user_id != operator_id
+    if (op.operator_id != operator_id or not login or login.user_id != operator_id or session_is_idle(login)
             or not op.session_expires_at or utc(op.session_expires_at) <= now()
             or not op.session_hash or not hmac.compare_digest(op.session_hash, session_hash)
             or not op.tab_token_hash or not hmac.compare_digest(op.tab_token_hash, token_hash(tab_token))

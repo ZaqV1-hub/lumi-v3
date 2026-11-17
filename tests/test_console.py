@@ -142,6 +142,44 @@ class ConsoleTest(unittest.TestCase):
         response=self.customer.post('/api/login',json={'email':'new@example.test','password':'demo1234','remember':False})
         self.assertEqual(response.status_code,200);self.assertNotIn('Max-Age',response.headers['set-cookie'])
 
+    def test_admin_session_expires_from_last_interaction_instead_of_polling(self):
+        token = self.customer.cookies.get('lumi_session')
+        issued = int(token.split('.')[0])
+        with patch('app.access.time') as clock:
+            clock.time.return_value = issued + 3599
+            self.assertEqual(self.customer.get('/admin').status_code, 200)
+            self.assertEqual(self.customer.get('/api/admin/conversations').status_code, 200)
+            self.assertEqual(self.customer.get('/api/session').status_code, 200)
+            clock.time.return_value = issued + 3600
+            self.assertEqual(self.customer.post('/api/session').status_code, 401)
+            self.assertEqual(self.customer.get('/api/me').status_code, 401)
+
+        token = self.operator.cookies.get('lumi_session')
+        issued = int(token.split('.')[0])
+        with patch('app.access.time') as clock:
+            clock.time.return_value = issued + 3599
+            self.assertEqual(self.operator.post('/api/session').status_code, 200)
+            clock.time.return_value = issued + 7198
+            self.assertEqual(self.operator.get('/api/me').status_code, 200)
+            self.assertEqual(self.operator.get('/api/console/overview').status_code, 200)
+            self.operator.post('/api/logout').raise_for_status()
+            self.operator.cookies.set('lumi_session', token)
+            self.assertEqual(self.operator.post('/api/session').status_code, 401)
+
+    def test_login_session_migration_adds_activity_without_removing_sessions(self):
+        from app.schema import prepare_login_session_columns
+        engine = create_engine('sqlite://')
+        try:
+            with engine.begin() as db:
+                db.exec_driver_sql('CREATE TABLE login_sessions (token_hash VARCHAR(64) PRIMARY KEY, user_id VARCHAR(36))')
+                db.exec_driver_sql("INSERT INTO login_sessions VALUES ('legacy-test', 'operator-test')")
+                prepare_login_session_columns(db)
+                prepare_login_session_columns(db)
+                row = db.exec_driver_sql('SELECT token_hash,user_id,last_activity FROM login_sessions').one()
+                self.assertEqual(tuple(row), ('legacy-test', 'operator-test', None))
+        finally:
+            engine.dispose()
+
     def test_remove_access_preserves_history_and_can_be_restored(self):
         self.operator.delete('/api/console/users/'+self.rincao_id).raise_for_status()
         self.assertNotIn(self.rincao_id,[row['id'] for row in self.operator.get('/api/console/users').json()])

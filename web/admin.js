@@ -8,7 +8,8 @@ let me,
   draft = {},
   settingsLoaded = false,
   settingsRequest = null,
-  lastRows = "",
+  lastRows = null,
+  conversationLoadError = false,
   refreshing = false;
 const ui = {
   conv: "",
@@ -94,19 +95,20 @@ function adminPath(path) {
   if (!tid || !(path.startsWith('/api/admin/') || path==='/api/me')) return path;
   return path+(path.includes('?')?'&':'?')+'tenant='+encodeURIComponent(tid);
 }
-async function api(path, method = "GET", body) {
+async function api(path, method = "GET", body, signal) {
   const r = await fetch(adminPath(path), {
-    method,
+    method, signal,
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  if (r.status === 401 && me) adminSession.expire();
   const data = await r.json();
   if (!r.ok)
-    throw Error(
+    throw Object.assign(Error(
       typeof data.detail === "string"
         ? data.detail
         : "Confira os campos informados.",
-    );
+    ), { status: r.status });
   return data;
 }
 window.addEventListener("unhandledrejection", (e) => {
@@ -150,7 +152,7 @@ function showSettings() {
     return;
   }
   const content = $("#content");
-  content.innerHTML = '<div class="cfg"><p role="status">Carregando configurações…</p></div>';
+  adminDataStatus(content, 'Carregando configurações…');
   if (!settingsRequest) {
     settingsRequest = loadSettings().finally(() => { settingsRequest = null; });
   }
@@ -158,8 +160,7 @@ function showSettings() {
     if (page() === "configuracoes") renderCfg();
   }).catch(() => {
     if (page() !== "configuracoes") return;
-    content.innerHTML = '<div class="cfg"><p role="alert">Não foi possível carregar as configurações.</p><button class="btn btn-ghost" id="retrySettings">Tentar novamente</button></div>';
-    $("#retrySettings").onclick = showSettings;
+    adminDataStatus(content, 'Não foi possível carregar as configurações.', showSettings);
   });
 }
 async function loadConversationRoles() {
@@ -169,10 +170,7 @@ async function loadConversationRoles() {
   ]);
   if (results[0].status === "fulfilled") simulationRoles = results[0].value;
   if (results[1].status === "fulfilled") contactRoles = results[1].value;
-  if (page() === "conversas") {
-    lastRows = "";
-    refresh();
-  }
+  if (page() === "conversas" && lastRows !== null) renderConvos();
 }
 $("#pwToggle").onclick = () => {
   const p = $("#pw");
@@ -187,6 +185,7 @@ $("#loginForm").onsubmit = async (e) => {
     await api("/api/login", "POST", {
       email: $("#email").value,
       password: $("#pw").value,
+      remember: false,
     });
     await boot();
   } catch (e) {
@@ -225,18 +224,28 @@ window.addEventListener("hashchange", () => {
   if (me) route();
 });
 document.querySelector('.nav a[data-route="conversas"]').addEventListener('click', () => {
-  ui.tp = ''; ui.q = ''; if (page() === 'conversas') renderConvos();
+  ui.tp = ''; ui.q = ''; if (page() === 'conversas') showConversationData();
 });
 async function boot() {
+  const startup = $("#adminStartup");
+  startup.hidden = false;
+  $("#login").hidden = true;
+  adminDataStatus(startup, "Carregando painel…");
   try {
-    me = await api("/api/me");
+    me = await api("/api/me", "GET", undefined, AbortSignal.timeout(30000));
     if(me.must_change_password || (me.role==='brevia' && !new URLSearchParams(location.search).get('tenant'))){location.replace('/admin');return;}
-  } catch {
+  } catch (error) {
     me = null;
-    $("#login").hidden = false;
-    $("#app").hidden = true;
+    if (error.status === 401) {
+      startup.hidden = true;
+      $("#login").hidden = false;
+    } else {
+      adminDataStatus(startup, "Não foi possível carregar o painel.", boot);
+    }
     return;
   }
+  adminSession.start(() => { disposeCalling(); stopOperatorRecordingUnless(null); });
+  startup.hidden = true;
   $("#login").hidden = true;
   $("#usageNav").hidden=me.role!=="brevia";
   $(".tenant b").textContent = me.tenant;
@@ -279,8 +288,7 @@ function route() {
       : "Administração da assistente");
   if (p === "consumo") drawUsage();
   else if (p === "configuracoes") showSettings();
-  else if (p === "conversas") renderConvos();
-  else renderDash();
+  else showConversationData();
 }
 const assistantName = () => me?.assistant_name || 'Lumi';
 const statusLabel = (s) =>
@@ -296,11 +304,26 @@ function updateHandoverCount() {
   badge.hidden = count === 0;
   badge.setAttribute("aria-label", `${count} ${count === 1 ? "pessoa aguardando atendimento humano" : "pessoas aguardando atendimento humano"}`);
 }
+function showConversationData() {
+  if (lastRows !== null) {
+    if (page() === "conversas") renderConvos();
+    else renderDash();
+  } else if (conversationLoadError) {
+    adminDataStatus($("#content"), "Não foi possível carregar os atendimentos.", () => {
+      conversationLoadError = false;
+      showConversationData();
+      void refresh();
+    });
+  } else {
+    adminDataStatus($("#content"), "Carregando atendimentos…");
+  }
+}
+
 async function refresh(redraw = true) {
-  if (!me || refreshing) return;
+  if (!me || refreshing || conversationLoadError) return;
   refreshing = true;
   try {
-    const data = await api("/api/admin/conversations");
+    const data = await api("/api/admin/conversations", "GET", undefined, AbortSignal.timeout(30000));
     const target = new URLSearchParams(location.search).get("conversation");
     if (target && !refresh.openedTarget && page() === "conversas") {
       refresh.openedTarget = true;
@@ -309,16 +332,17 @@ async function refresh(redraw = true) {
         ui.mobileDetail = true;
       }
     }
-    const changed = JSON.stringify(data) !== lastRows;
+    const rows = JSON.stringify(data);
+    const changed = rows !== lastRows;
     convos = data;
     updateHandoverCount();
-    lastRows = JSON.stringify(data);
-    if (redraw && changed && !["configuracoes","consumo"].includes(page())) {
-      if (page() === "conversas") renderConvos();
-      else renderDash();
+    lastRows = rows;
+    if (redraw && changed && !["configuracoes","consumo"].includes(page())) showConversationData();
+  } catch (error) {
+    if (lastRows === null && error.status !== 401) {
+      conversationLoadError = true;
+      if (!["configuracoes","consumo"].includes(page())) showConversationData();
     }
-  } catch (e) {
-    toast(e.message);
   } finally {
     refreshing = false;
   }

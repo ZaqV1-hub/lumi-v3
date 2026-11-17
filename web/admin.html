@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="/static/operator-workspace.css"><link rel="stylesheet" href="/static/admin-usage.css"><link rel="stylesheet" href="/static/admin-comments.css"><link rel="stylesheet" href="/static/admin-calling.css"><link rel="stylesheet" href="/static/admin-conversations.css"></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="/static/operator-workspace.css"><link rel="stylesheet" href="/static/admin-usage.css"><link rel="stylesheet" href="/static/admin-comments.css"><link rel="stylesheet" href="/static/admin-calling.css"><link rel="stylesheet" href="/static/admin-conversations.css"><link rel="stylesheet" href="/static/admin-status.css"></head><body>
 <title>Lumi Admin</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -401,7 +401,8 @@ textarea.input{min-height:200px;resize:vertical;line-height:1.7}
 </style>
 
 <!-- ================= LOGIN ================= -->
-<section id="login">
+<div id="adminStartup"><div class="admin-data-status" role="status"><span class="admin-data-spinner" aria-hidden="true"></span><p>Carregando painel…</p></div></div>
+<section id="login" hidden>
   <aside class="login-side">
     <span class="ring" style="width:520px;height:520px;right:-180px;top:-140px"></span>
     <span class="ring" style="width:340px;height:340px;left:-120px;bottom:-160px"></span>
@@ -436,7 +437,6 @@ textarea.input{min-height:200px;resize:vertical;line-height:1.7}
           <button type="button" id="pwToggle">Mostrar</button>
         </div>
       </div>
-      <label class="check"><input type="checkbox" id="keep" checked> Manter conectado</label>
       <p class="err" id="loginErr" hidden></p>
       <button class="btn btn-primary btn-lg" type="submit">Entrar</button>
       <p class="help">Precisa de acesso para outra pessoa da equipe? <button type="button" class="link" data-support>Fale com o suporte da Brevia.</button></p>
@@ -489,4 +489,4 @@ textarea.input{min-height:200px;resize:vertical;line-height:1.7}
 <div id="overlay" class="overlay" hidden></div>
 <style>.msg img{display:block;max-width:280px;max-height:260px;border-radius:10px;margin-top:8px}.reply-box{padding:14px;border-top:1px solid var(--line);display:flex;gap:10px}.reply-box .input{flex:1}.handover-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.notice-live{padding:12px;border-radius:10px;background:var(--teal-soft);color:var(--teal);margin-bottom:14px}.msg.system{align-self:center;background:var(--gold-soft);font-size:13px}.msg strong{display:block}.c-detail{min-height:0}.thread{min-height:100px}</style><div id="toast" class="toast" hidden></div>
 
-<script src="/static/admin-calling.js"></script><script src="/static/admin.js"></script><script src="/static/admin-conversations.js"></script><script src="/static/admin-profile.js"></script><script src="/static/admin-operator-media.js"></script><script src="/static/admin-dashboard.js"></script><script src="/static/admin-comments.js"></script><script src="/static/admin-ai.js"></script><script src="/static/admin-config.js"></script><script src="/static/admin-roles.js"></script><script src="/static/admin-knowledge.js"></script><script src="/static/admin-images.js"></script><script src="/static/admin-onboarding.js"></script><script src="/static/admin-usage.js"></script></body></html>
+<script src="/static/admin-session.js"></script><script src="/static/admin-calling.js"></script><script src="/static/admin.js"></script><script src="/static/admin-conversations.js"></script><script src="/static/admin-profile.js"></script><script src="/static/admin-operator-media.js"></script><script src="/static/admin-dashboard.js"></script><script src="/static/admin-comments.js"></script><script src="/static/admin-ai.js"></script><script src="/static/admin-config.js"></script><script src="/static/admin-roles.js"></script><script src="/static/admin-knowledge.js"></script><script src="/static/admin-images.js"></script><script src="/static/admin-onboarding.js"></script><script src="/static/admin-usage.js"></script></body></html>

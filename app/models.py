@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKeyConstraint,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -99,6 +100,7 @@ class LoginSession(Base):
     __tablename__ = "login_sessions"
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36))
+    last_activity: Mapped[int | None] = mapped_column(Integer)
 
 
 class VisitorSession(Base):

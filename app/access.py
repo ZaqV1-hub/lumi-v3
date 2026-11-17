@@ -1,9 +1,8 @@
 import hashlib
-import secrets
 import time
 
 from fastapi import HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import case, func, update
 
 from .db import Session
 from .models import LoginSession, User
@@ -15,17 +14,32 @@ def password_hash(password, salt):
     return hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 200000).hex()
 
 
+SESSION_IDLE_SECONDS = 3600
+
+
+def session_is_idle(session):
+    return session.last_activity is not None and session.last_activity <= int(time.time()) - SESSION_IDLE_SECONDS
+
+
 def authenticated_user(request: Request):
+    return authenticate_session(request)
+
+
+def authenticate_session(request: Request, *, touch=False):
     token = request.cookies.get("lumi_session", "")
+    at = int(time.time())
     try:
-        issued = int(token.split(".")[0])
-        if not 0 <= time.time() - issued < 86400:
+        issued, secret = token.split(".", 1)
+        issued = int(issued)
+        if issued > at or not secret:
             raise ValueError()
     except ValueError:
         raise HTTPException(401, "Entre com seu login")
-    with Session() as db:
-        session = db.get(LoginSession, hashlib.sha256(token.encode()).hexdigest())
-        if not session:
+    key = hashlib.sha256(token.encode()).hexdigest()
+    cutoff = at - SESSION_IDLE_SECONDS
+    with Session.begin() as db:
+        session = db.get(LoginSession, key)
+        if not session or (session.last_activity if session.last_activity is not None else issued) <= cutoff:
             raise HTTPException(401, "Entre com seu login")
         user = db.get(User, session.user_id)
         if not user:
@@ -33,6 +47,13 @@ def authenticated_user(request: Request):
         account = db.get(ConsoleAccount, user.id)
         if account and not account.enabled:
             raise HTTPException(401, "Este acesso está desativado")
+        if touch:
+            last_activity = func.coalesce(LoginSession.last_activity, issued)
+            renewed = db.execute(update(LoginSession).where(
+                LoginSession.token_hash == key, last_activity > cutoff
+            ).values(last_activity=case((last_activity < at, at), else_=last_activity))).rowcount
+            if not renewed:
+                raise HTTPException(401, "Entre com seu login")
         user.console_role = account.role if account else "admin"
         user.must_change_password = bool(account and account.must_change_password)
         db.expunge(user)

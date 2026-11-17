@@ -4,12 +4,16 @@ const usd=value=>value==null?'Sem medição':new Intl.NumberFormat('pt-BR',{styl
 const integer=value=>Number(value||0).toLocaleString('pt-BR');
 const date=value=>value?new Date(value).toLocaleString('pt-BR'):'Não registrado';
 let operator=null,DATA=null,ISSUES=[],period='7d',routeVersion=0;
-async function api(path,method='GET',body){
-  const response=await fetch(path,{method,headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
-  const data=await response.json();if(method!=='GET')dataLoadedAt=0;if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Confira os campos informados.');return data;
+async function api(path,method='GET',body,signal){
+  const response=await fetch(path,{method,signal,headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
+  if(response.status===401 && operator)adminSession.expire();
+  const data=await response.json();
+  if(method!=='GET')dataLoadedAt=0;
+  if(!response.ok)throw Object.assign(Error(typeof data.detail==='string'?data.detail:'Confira os campos informados.'),{status:response.status});
+  return data;
 }
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').hidden=true,4500);}
-function show(screen){for(const id of ['login','app'])$('#'+id).hidden=id!==screen;}
+function show(screen){for(const id of ['adminStartup','login','app'])$('#'+id).hidden=id!==screen;}
 function modal(html){
   const overlay=$('#overlay');overlay.innerHTML='<div class="modal" role="dialog" aria-modal="true">'+html+'</div>';overlay.hidden=false;
   const close=()=>{overlay.hidden=true;overlay.replaceChildren();};overlay.onclick=e=>{if(e.target===overlay)close();};
@@ -22,7 +26,7 @@ $('#menuBtn').onclick=()=>document.body.classList.add('nav-open');$('#scrim').on
 $('#logout').onclick=async()=>{await api('/api/logout','POST');location.assign('/admin');};
 $('#loginForm').onsubmit=async event=>{
   event.preventDefault();const button=event.submitter;button.disabled=true;$('#lErr').hidden=true;
-  try{await api('/api/login','POST',{email:$('#em').value,password:$('#pw').value,remember:$('#keep').checked});$('#currentPw').value=$('#pw').value;$('#pw').value='';await boot();}
+  try{await api('/api/login','POST',{email:$('#em').value,password:$('#pw').value,remember:false});$('#currentPw').value=$('#pw').value;$('#pw').value='';await boot();}
   catch(error){$('#lErr').textContent=error.message;$('#lErr').hidden=false;}finally{button.disabled=false;}
 };
 $('#pwForm').onsubmit=async event=>{
@@ -33,11 +37,27 @@ $('#pwForm').onsubmit=async event=>{
   catch(error){$('#pErr').textContent=error.message;$('#pErr').hidden=false;}finally{button.disabled=false;}
 };
 async function boot(){
-  let me;try{me=await api('/api/me');}catch{show('login');$('#loginForm').hidden=false;$('#pwForm').hidden=true;return;}
+  const startup=$('#adminStartup');
+  show('adminStartup');
+  adminDataStatus(startup,'Carregando painel…');
+  let me;
+  try{me=await api('/api/me','GET',undefined,AbortSignal.timeout(30000));}
+  catch(error){
+    if(error.status===401){show('login');$('#loginForm').hidden=false;$('#pwForm').hidden=true;}
+    else adminDataStatus(startup,'Não foi possível carregar o painel.',boot);
+    return;
+  }
+  adminSession.start();
   if(me.must_change_password){show('login');$('#loginForm').hidden=true;$('#pwForm').hidden=false;$('#np').focus();return;}
   const link = new URLSearchParams(location.search);
-  if(link.has('tenant') && link.has('conversation')){location.reload();return;}
-  if(me.role!=='brevia'){location.replace('/admin');return;}
+  if(me.role==='brevia' && link.has('tenant')){location.reload();return;}
+  if(me.role!=='brevia'){
+    const section = location.hash.startsWith('#/') ? '' : location.hash;
+    const query = link.get('tenant') === me.tenant_id || !link.has('tenant') ? location.search : '';
+    history.replaceState(null,'','/admin'+query+section);
+    location.reload();
+    return;
+  }
   operator=me;$('#currentPw').value='';$('#meName').textContent=me.name;$('#meAv').textContent=me.name[0];dataLoadedAt=0;await route();
 }
 function nav(active){
@@ -53,7 +73,11 @@ async function route(){
   const parts=(location.hash||'#/visao').replace(/^#\/?/,'').split('/'),page=parts[0];
   try{
     if(!DATA||Date.now()-dataLoadedAt>15000||DATA.period!==period){
-      const [issues,data]=await Promise.all([api('/api/console/issues'),api('/api/console/overview?period='+period)]);
+      const signal=AbortSignal.timeout(30000);
+      const [issues,data]=await Promise.all([
+        api('/api/console/issues','GET',undefined,signal),
+        api('/api/console/overview?period='+period,'GET',undefined,signal),
+      ]);
       if(version!==routeVersion)return;ISSUES=issues;DATA=data;dataLoadedAt=Date.now();
     }
     show('app');nav(page==='t'?'tenants':page);
@@ -63,6 +87,13 @@ async function route(){
       if(tab==='chat'){location.assign('/chat/'+encodeURIComponent(item.slug)+'?tenant='+item.id);return;}
       if(tab==='acessos')await renderAccesses($('#content'),item.id);else await renderCosts($('#content'),item);
     }else if(page==='gestao')await renderBusiness($('#content'),parts[1]);else if(page==='tenants')renderTenants();else if(page==='problemas')renderIssues();else if(page==='acessos')await renderAccesses($('#content'));else renderOverview();
-  }catch(error){toast(error.message);}
+  }catch(error){
+    if(version!==routeVersion || error.status===401)return;
+    if(!DATA)adminDataStatus($('#adminStartup'),'Não foi possível carregar os dados do console.',()=>{
+      adminDataStatus($('#adminStartup'),'Carregando painel…');
+      void route();
+    });
+    else toast(error.message);
+  }
 }
 window.addEventListener('hashchange',route);window.addEventListener('DOMContentLoaded',boot);

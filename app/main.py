@@ -39,6 +39,7 @@ from .simulation import router as simulation_router
 from .instagram.comment_admin import router as comment_admin_router
 from .role_instructions import router as role_instructions_router
 from .access import console_user
+from .schema import prepare_login_session_columns
 from .tenant_ai_routes import router as tenant_ai_router
 from .whatsapp.calling_admin import router as calling_router
 from .whatsapp.calling_reconcile import run_reconciler
@@ -52,6 +53,9 @@ async def lifespan(_):
     load_config()
     active_engine = Session.kw["bind"]
     Base.metadata.create_all(active_engine, tables=[table for table in Base.metadata.sorted_tables if table not in CALLING_TABLES])
+    if active_engine.dialect.name == "sqlite":
+        with active_engine.begin() as connection:
+            prepare_login_session_columns(connection)
     if os.getenv("LUMI_SEED_DEMO", "true").lower() in {"true", "1"}:
         seed()
     with active_engine.begin() as connection:
@@ -127,13 +131,13 @@ def home(request: Request):
     from .access import authenticated_user, current_user
     try:user=authenticated_user(request)
     except HTTPException:return versioned_page("console.html")
-    if user.must_change_password:return versioned_page("console.html",authenticated=True)
+    if user.must_change_password:return versioned_page("console.html")
     if user.console_role=="brevia":
         if request.query_params.get("tenant"):
             current_user(request)
-            return versioned_page("admin.html",back=True,authenticated=True)
-        return versioned_page("console.html",authenticated=True)
-    return versioned_page("admin.html",readonly=user.console_role=="leitura",authenticated=True)
+            return versioned_page("admin.html",back=True)
+        return versioned_page("console.html")
+    return versioned_page("admin.html",readonly=user.console_role=="leitura")
 
 
 @app.get("/chat/{slug}")
@@ -169,13 +173,12 @@ def console_page():
     return RedirectResponse("/admin",status_code=307)
 
 
-def versioned_page(filename,back=False,readonly=False,authenticated=False,assistant=None):
+def versioned_page(filename,back=False,readonly=False,assistant=None):
     import re
     from html import escape
     html = (ROOT / "web" / filename).read_text(encoding="utf-8-sig")
     if assistant:
         html = html.replace("{{assistant}}", escape(assistant))
-    if authenticated:html=html.replace('<section id="login">','<section id="login" hidden>',1)
     if back:
         html=html.replace('<body>','<body class="operator-workspace"><header id="operatorBar"><a href="/admin#/tenants">Voltar ao console</a></header>',1)
     elif readonly:

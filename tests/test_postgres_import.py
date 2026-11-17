@@ -104,7 +104,7 @@ class PostgresImportTest(unittest.TestCase):
             'DELETE FROM tenant_runtime',
             'UPDATE tenant_features SET enabled=1',
             "UPDATE tenant_features SET endpoint='https://live.example/execute'",
-            "INSERT INTO login_sessions VALUES ('private-session','operator')",
+            "INSERT INTO login_sessions (token_hash,user_id) VALUES ('private-session','operator')",
             'CREATE TABLE unexpected (id TEXT); INSERT INTO unexpected VALUES (\'x\')',
             'UPDATE image_assets SET enabled=2',
             "UPDATE image_assets SET tenant_id='missing-tenant'",

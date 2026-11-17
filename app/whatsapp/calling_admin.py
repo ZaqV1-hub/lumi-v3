@@ -1,5 +1,5 @@
 """Authenticated human calling controls. Graph credentials never leave the server."""
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 import hashlib
 import logging
 import re
@@ -213,8 +213,7 @@ def create_call(cid: str, data: CallInput, request: Request, response: Response,
     user = current_user(request)
     with Session.begin() as db:
         op = calling.reserve_call(db, tenant_id=user.tenant_id, conversation_id=cid,
-            idempotency_key=data.idempotency_key, offer_sdp=data.sdp_offer, **owner,
-            session_expires_at=datetime.fromtimestamp(int(request.cookies['lumi_session'].split('.')[0]), timezone.utc) + timedelta(days=1))
+            idempotency_key=data.idempotency_key, offer_sdp=data.sdp_offer, **owner)
         if not op.is_new:
             return {**summary(op, media=True), 'tab_token': owner['tab_token']}
         calling.update_operation(db, op, state='initiating')

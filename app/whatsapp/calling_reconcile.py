@@ -9,6 +9,7 @@ from ..console_models import ConsoleAccount
 from ..db import Session
 from ..media_models import ConversationControl
 from ..models import Conversation, LoginSession, now
+from ..access import session_is_idle
 from . import calling, calling_graph as graph
 from .calling_models import CallOperation
 from .models import Channel
@@ -75,7 +76,7 @@ def reconcile_once():
             account = db.get(ConsoleAccount, op.operator_id)
             abandoned = (not op.lease_expires_at or calling.utc(op.lease_expires_at) <= now()
                 or not op.session_expires_at or calling.utc(op.session_expires_at) <= now()
-                or not login or login.user_id != op.operator_id or not c or c.status != 'humano'
+                or not login or login.user_id != op.operator_id or session_is_idle(login) or not c or c.status != 'humano'
                 or not control or control.operator_id != op.operator_id
                 or bool(account and (not account.enabled or account.role == 'leitura' or account.must_change_password))
                 or op.browser_state in {'failed', 'closed'})

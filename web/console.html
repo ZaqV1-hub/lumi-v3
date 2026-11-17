@@ -1,5 +1,6 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Lumi Admin</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"><link rel="stylesheet" href="/static/console.css"><link rel="stylesheet" href="/static/console-business.css"></head><body><!-- ===== LOGIN ===== -->
-<section id="login">
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Lumi Admin</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"><link rel="stylesheet" href="/static/console.css"><link rel="stylesheet" href="/static/console-business.css"><link rel="stylesheet" href="/static/admin-status.css"></head><body><!-- ===== LOGIN ===== -->
+<div id="adminStartup"><div class="admin-data-status" role="status"><span class="admin-data-spinner" aria-hidden="true"></span><p>Carregando painel…</p></div></div>
+<section id="login" hidden>
   <div class="l-brand">
     <img src="/static/console-logo-1.png" alt="Brevia" style="display:block">
     <div><h2>Acompanhe e ajuste a sua assistente em tempo real.</h2><p>Um só acesso para a equipe Brevia e para os clientes. Cada pessoa entra direto no lugar certo.</p></div>
@@ -11,7 +12,6 @@
       <div class="l-err" id="lErr" role="alert" hidden></div>
       <div class="field"><label for="em">E-mail</label><input class="inp" id="em" required type="email" autocomplete="username" placeholder="nome@empresa.com.br"></div>
       <div class="field"><label for="pw">Senha</label><div class="pwrow"><input class="inp" id="pw" required type="password" autocomplete="current-password" placeholder="Sua senha"><button type="button" id="pwT">Mostrar</button></div></div>
-      <label class="keep"><input type="checkbox" id="keep" checked> Manter conectado</label>
       <button class="btn btn-primary" type="submit" style="min-height:48px">Entrar</button>
       <p class="muted" style="font-size:13.5px">Esqueceu a senha? Solicite a redefinição à equipe Brevia.</p>
 
@@ -42,4 +42,4 @@
 </div>
 
 <div id="overlay" class="overlay" hidden></div>
-<div id="toast" class="toast" role="status" hidden></div><script src="/static/console.js"></script><script src="/static/console-access.js"></script><script src="/static/console-issues.js"></script><script src="/static/console-views.js"></script><script src="/static/console-business.js"></script><script src="/static/console-business-forms.js"></script></body></html>
+<div id="toast" class="toast" role="status" hidden></div><script src="/static/admin-session.js"></script><script src="/static/console.js"></script><script src="/static/console-access.js"></script><script src="/static/console-issues.js"></script><script src="/static/console-views.js"></script><script src="/static/console-business.js"></script><script src="/static/console-business-forms.js"></script></body></html>

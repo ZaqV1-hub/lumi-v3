@@ -160,7 +160,7 @@ def migrate_whatsapp_follow_up(root, environment, release_id):
     from app.db import Base, engine
     from app.documents import DocumentAsset, MessageDocument
     from app.handover_offer import HandoverOffer
-    from app.schema import prepare_feature_call_columns
+    from app.schema import prepare_feature_call_columns, prepare_login_session_columns
     from app.visit_goal import VisitGoal
     from app.whatsapp.calling_setup import prepare_schema as prepare_calling_schema
     from app.whatsapp.follow_up import FollowUp, FollowUpChannel
@@ -173,6 +173,7 @@ def migrate_whatsapp_follow_up(root, environment, release_id):
         ])
         prepare_calling_schema(connection)
         prepare_feature_call_columns(connection)
+        prepare_login_session_columns(connection)
 
 
 def health(root, environment):

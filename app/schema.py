@@ -12,6 +12,14 @@ from . import role_instructions, tenant_ai, reply_delivery
 metadata = Base.metadata
 
 
+def prepare_login_session_columns(connection):
+    """Sessões existentes usam a data do próprio cookie até a primeira interação."""
+    if connection.dialect.name == "postgresql":
+        connection.exec_driver_sql("ALTER TABLE login_sessions ADD COLUMN IF NOT EXISTS last_activity INTEGER")
+    elif "last_activity" not in {column["name"] for column in inspect(connection).get_columns("login_sessions")}:
+        connection.exec_driver_sql("ALTER TABLE login_sessions ADD COLUMN last_activity INTEGER")
+
+
 def prepare_feature_call_columns(connection):
     """Preserva chamadas antigas sem data nem mensagem vinculadas."""
     dialect = connection.dialect.name

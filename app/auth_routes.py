@@ -3,7 +3,7 @@ import secrets
 import time
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
-from .access import authenticated_user, current_user, password_hash
+from .access import authenticate_session, authenticated_user, current_user, password_hash
 from .console_models import ConsoleAccount
 from .models import now
 from pydantic import BaseModel, Field
@@ -27,10 +27,11 @@ def login(data: Login, request: Request, response: Response):
             raise HTTPException(401, "E-mail ou senha inválidos")
         if account:
             account.last_login = now()
-        token = str(int(time.time())) + "." + secrets.token_urlsafe(32)
+        issued = int(time.time())
+        token = str(issued) + "." + secrets.token_urlsafe(32)
         db.add(
             LoginSession(
-                token_hash=hashlib.sha256(token.encode()).hexdigest(), user_id=user.id
+                token_hash=hashlib.sha256(token.encode()).hexdigest(), user_id=user.id, last_activity=issued
             )
         )
         response.set_cookie(
@@ -38,6 +39,13 @@ def login(data: Login, request: Request, response: Response):
             max_age=86400 if data.remember else None
         )
         return {"ok": True}
+
+
+@router.api_route("/api/session", methods=["GET", "POST"])
+def session_status(request: Request, response: Response):
+    authenticate_session(request, touch=request.method == "POST")
+    response.headers["Cache-Control"] = "no-store"
+    return {"ok": True}
 
 
 @router.post("/api/logout")
