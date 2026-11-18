@@ -48,6 +48,7 @@ async def lifespan(_):
         )
         db.execute(update(ContactGate).values(pending=0))
         db.execute(update(HandoverAlert).where(HandoverAlert.status == "sending").values(status="uncertain"))
+        db.execute(update(HandoverAlert).where(HandoverAlert.status == "preparing").values(status="pending"))
         db.execute(update(CommentJob).where(CommentJob.status.in_(["queued", "generating", "sending"])).values(status="interrupted", error="Servidor reiniciado; confira o comentário antes de reenviar."))
 
     async def deliver():

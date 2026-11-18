@@ -13,6 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ..db import Base, Session
 from ..models import Conversation, Message, now
 from ..tenant_runtime import enabled
+from ..handover_summary import HandoverBrief, summarize
 from .graph import send, send_handover_template
 from .models import Channel, Chat, Outbox
 
@@ -102,7 +103,20 @@ def deliver_alert():
         subject = TOPICS[alert.topic]
         changed = db.execute(update(HandoverAlert).where(
             HandoverAlert.message_id == mid, HandoverAlert.status == "pending"
-        ).values(status="sending")).rowcount
+        ).values(status="preparing")).rowcount
+        if not changed:
+            return True
+        tid, cid = message.tenant_id, message.conversation_id
+    brief = summarize(tid, cid, mid)
+    subject = (subject + ". " + brief)[:800]
+    with Session.begin() as db:
+        conversation = db.get(Conversation, cid)
+        channel = db.get(Channel, phone)
+        if not conversation or conversation.tenant_id != tid or conversation.status != "aguardando" or not channel or channel.tenant_id != tid or destination(tid) != config:
+            db.execute(update(HandoverAlert).where(HandoverAlert.message_id == mid).values(status="cancelled"))
+            return True
+        changed = db.execute(update(HandoverAlert).where(HandoverAlert.message_id == mid,
+            HandoverAlert.status == "preparing").values(status="sending")).rowcount
         if not changed:
             return True
     external_id = ""

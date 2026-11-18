@@ -41,3 +41,5 @@ texto exige uma conversa recente do destinatário com o mesmo número empresaria
 Os avisos usam uma fila própria. Envios incertos ficam registrados para
 conferência, sem repetição automática. A migração de deploy é aditiva. Para
 voltar, restaure a configuração do tenant e preserve os pedidos já recebidos.
+
+Os avisos ao atendente incluem um resumo factual de até 600 caracteres, além do assunto e do link autenticado. O resumo é gerado somente com o histórico do tenant e da conversa até a solicitação, omite identificadores e links privados e fica em `handover_briefs`, vinculado à mensagem do pedido. Uma falha de geração usa trechos do próprio cliente, sem inventar um motivo. A migração cria somente essa tabela, sem substituir históricos. O estado `preparing` pode ser retomado após reinício porque ainda não houve envio; `sending` continua incerto e não é repetido. Antes de enviar, a fila e o tenant são verificados novamente para cancelar avisos cujo atendimento já foi assumido. Retorno: usar o código anterior e preservar a tabela, os avisos e as mensagens.

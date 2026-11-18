@@ -165,11 +165,12 @@ def migrate_whatsapp_follow_up(root, environment, release_id):
     from app.whatsapp.calling_setup import prepare_schema as prepare_calling_schema
     from app.whatsapp.follow_up import FollowUp, FollowUpChannel
     from app.whatsapp.handover_alerts import HandoverAlert
+    from app.handover_summary import HandoverBrief
 
     with engine.begin() as connection:
         Base.metadata.create_all(connection, tables=[
             DocumentAsset.__table__, MessageDocument.__table__, FollowUpChannel.__table__,
-            FollowUp.__table__, VisitGoal.__table__, HandoverAlert.__table__, HandoverOffer.__table__
+            FollowUp.__table__, VisitGoal.__table__, HandoverAlert.__table__, HandoverOffer.__table__, HandoverBrief.__table__
         ])
         prepare_calling_schema(connection)
         prepare_feature_call_columns(connection)
