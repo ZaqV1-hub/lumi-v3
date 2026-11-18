@@ -148,7 +148,7 @@ class OnboardingTest(unittest.TestCase):
             count = len(list(db.scalars(select(FeatureCall).where(FeatureCall.conversation_id == self.cid))))
             self.assertEqual(count, 1)
 
-    def test_assisted_alert_uses_only_the_topic_and_protected_conversation_link(self):
+    def test_assisted_alert_uses_contextual_summary_and_protected_conversation_link(self):
         import os
         from app import client, features
         from app.models import Conversation, Feature, Message
@@ -169,6 +169,7 @@ class OnboardingTest(unittest.TestCase):
         answer = {"reply": "A equipe poderá seguir com você.", "action": "handover", "handover_topic": "pagamento"}
         with patch.dict(os.environ, {"LUMI_HANDOVER_ALERTS": json.dumps(config)}), \
                 patch.object(client, "reply", return_value=answer), \
+                patch.object(alerts, "summarize", return_value="O cliente precisa de ajuda com seu pedido."), \
                 patch.object(alerts, "send_handover_template", return_value="wamid.synthetic") as outbound:
             self.admin.post("/api/client/" + self.token + "/messages",
                             json={"content": "Quero falar com um atendente sobre meu pedido."}).raise_for_status()
@@ -187,7 +188,7 @@ class OnboardingTest(unittest.TestCase):
             self.assertTrue(alerts.deliver_alert())
             self.assertFalse(alerts.deliver_alert())
         outbound.assert_called_once_with("123456", "FAKE_WA_TOKEN", "15555550123", "handover_alert",
-                                        "Pagamento ou pedido",
+                                        "Pagamento ou pedido. O cliente precisa de ajuda com seu pedido.",
                                         f"https://admin.example.test/admin?tenant={tid}&conversation={self.cid}#conversas")
 
     def test_two_operators_can_own_different_conversations(self):
