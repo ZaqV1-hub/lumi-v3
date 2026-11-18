@@ -41,3 +41,6 @@ texto exige uma conversa recente do destinatário com o mesmo número empresaria
 Os avisos usam uma fila própria. Envios incertos ficam registrados para
 conferência, sem repetição automática. A migração de deploy é aditiva. Para
 voltar, restaure a configuração do tenant e preserve os pedidos já recebidos.
+
+
+O receptor público pode publicar checkouts externos por vínculo configurado em `LUMI_CHECKOUT_BINDINGS` (JSON: nome curto → base HTTPS fixa). A rota `/checkout/{vinculo}/{token}` encaminha somente página, estado e POST de pagamento/autenticação; não permite escolher origem pelo cliente, redirecionar, transportar cookies ou expor contratos administrativos. O serviço de destino valida o token, a origem pública, proteção CSRF e idempotência. Ativos visuais compartilhados são servidos pelo receptor. Vínculos e marcas permanecem na configuração privada/serviço responsável; o núcleo não decide o tenant pelo modelo. O checkout legado sem vínculo permanece disponível.

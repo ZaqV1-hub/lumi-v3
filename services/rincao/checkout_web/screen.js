@@ -35,7 +35,7 @@ function pendingPane(data) {
 
 function confirmedPane(data) {
   const quantity = data.quote.items.reduce((total,item)=>total+item.quantity,0);
-  return `<section class="card pane"><div class="center"><span class="ico ok">${I.big}</span><h2>Pagamento confirmado</h2><p>Seus ${quantity} ingressos estão registrados no sistema do Rincão e vinculados ao CPF da compra.</p></div>
+  return `<section class="card pane"><div class="center"><span class="ico ok">${I.big}</span><h2>Pagamento confirmado</h2><p>Seus ${quantity} ingressos estão registrados e vinculados ao CPF da compra.</p></div>
     <dl class="receipt"><div class="r"><dt>Valor pago</dt><dd>${money(data.quote.totalAmount)}</dd></div><div class="r"><dt>Forma de pagamento</dt><dd>${esc(methodLabel(data.method))}</dd></div><div class="r"><dt>Pedido</dt><dd>#${esc(data.order_id)}</dd></div>${data.payment_id?`<div class="r"><dt>Transação</dt><dd>${esc(data.payment_id)}</dd></div>`:''}</dl>
     <div class="tickets">${data.quote.items.map(item=>`<div class="tk"><div><b>${item.quantity} × ${esc(item.title)}</b><span>Vinculado ao CPF ${esc(data.cpf_masked)}</span></div></div>`).join('')}</div>
     ${data.account_url?`<div class="actions"><a class="btn btn-primary" href="${esc(data.account_url)}" rel="noreferrer">Concluir meu cadastro</a></div>`:''}<p class="fine">Você pode voltar à conversa com a Lumi para continuar o atendimento.</p></section>`;
