@@ -50,7 +50,8 @@ function conversationRow(c) {
   return `<button type="button" class="c-item" data-id="${esc(c.id)}" aria-current="${c.id === ui.conv}">
     <span class="top"><span class="pill wa">${conversationChannel(c.channel)}</span><time>${clockTime(last?.created_at || c.created_at)}</time></span>
     ${contactLabel(c)}<span class="last">${esc(last?.content || last?.attachment_name || 'Conversa iniciada')}</span>
-    <span class="conversation-row-status"><span class="pill ${c.blocked ? 'topic' : c.status}">${esc(status)}</span>${visitGoalBadge(c)}</span></button>`;
+    <span class="conversation-row-status"><span class="pill ${c.blocked ? 'topic' : c.status}">${esc(status)}</span>${visitGoalBadge(c)}</span>
+    ${c.waiting_since ? `<small class="queue-request-time">Solicitou atendimento em ${esc(new Date(c.waiting_since).toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'}))}</small>` : ''}</button>`;
 }
 
 function drawConvoBody(position) {
@@ -202,6 +203,8 @@ function conversationDetail(c) {
       </div>
     </div>
     ${renderCallingControls(c)}
+    ${c.waiting_since ? `<p class="queue-request-time">Atendimento solicitado em ${esc(new Date(c.waiting_since).toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'}))}</p>` : ''}
+    ${c.phone ? `<p>Telefone autorizado: <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></p>` : c.phone_consent === 'pending' ? '<p class="queue-request-time">Telefone: aguardando autorização do cliente</p>' : c.phone_consent === 'declined' ? '<p class="queue-request-time">Telefone: compartilhamento não autorizado</p>' : ''}
     ${conversationProfile(c)}
   </header>
   <div id="calling-slot"></div>

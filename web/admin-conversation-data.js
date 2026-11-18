@@ -1,6 +1,18 @@
 let conversationList;
 let conversationThread;
 let searchTimer;
+let waitingCountBusy = false;
+
+async function refreshWaitingCount() {
+  if (waitingCountBusy) return;
+  waitingCountBusy = true;
+  try {
+    const data = await api('/api/admin/attendance/waiting', 'GET', undefined, AbortSignal.timeout(15000));
+    if (updateHandoverCount(data.waiting_count) && page() === 'conversas' && conversationList) renderConvos();
+  } catch {
+    // Preserve the last confirmed count on a temporary network failure.
+  } finally { waitingCountBusy = false; }
+}
 
 function conversationFilter() {
   return { [statusLabel('lumi')]: 'lumi', 'Aguardando atendimento': 'aguardando', 'Atendimento humano': 'humano' }[ui.tp] || '';
@@ -170,7 +182,9 @@ async function loadConversationThread({ older = false, quiet = false } = {}) {
 }
 
 async function refresh() {
-  if (!me || page() !== 'conversas' || document.hidden || !conversationList) return;
+  if (!me || document.hidden) return;
+  await refreshWaitingCount();
+  if (page() !== 'conversas' || !conversationList) return;
   const list = conversationList;
   await Promise.allSettled([
     list.items && loadConversationPage({ quiet: true }),

@@ -22,6 +22,7 @@ from .documents import MessageDocument, available_documents, document_context
 from .whatsapp.follow_up import schedule
 from .whatsapp.handover_alerts import enqueue as enqueue_handover_alert
 from .handover_offer import HandoverOffer, pending_offer
+from .attendance import AttendancePolicy, prompt_context as attendance_context
 from .schemas import Start, TextInput
 from .conversations import conversation, messages, visitor
 from .features import (
@@ -138,6 +139,8 @@ def handover(tid, cid, role, reason, response, revision, source_features=(), *, 
             if feature.endpoint == ASSISTED_HANDOVER_ENDPOINT:
                 replies = save_reply(db, tid, cid, response, revision, track_revision=True)
                 enqueue_handover_alert(db, tid, cid, replies[0].id, topic)
+                from .attendance_worker import register
+                register(db, tid, cid, replies[0].id)
             else:
                 message = Message(tenant_id=tid, conversation_id=cid, sender="lumi", content=response)
                 db.add(message)
@@ -312,6 +315,9 @@ def answer_message(token, data, cutoff, revision):
                 for f in features
             ),
         )
+        prompt += attendance_context(db, tid)
+        from .contact_consent import prompt_context as consent_context
+        prompt += consent_context(db, tid, cid)
         if waiting:
             prompt += "\nO pedido de atendimento humano já está na fila. Nenhum operador assumiu esta conversa. Continue ajudando normalmente e evite novos encaminhamentos ou repetir o aviso a cada mensagem."
         elif confirmation == "confirm":

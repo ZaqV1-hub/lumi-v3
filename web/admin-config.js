@@ -7,6 +7,7 @@ function renderCfg() {
     ["kb", "Base de conhecimento"],
     ["imgs", "Imagens"],
     ["onboarding", "Onboarding"],
+    ["attendance", "Atendimento humano"],
     ["comments", "Comentários Instagram"],
   ];
   if(me.role==="brevia")tabs.push(["ai", "Inteligência artificial"]);
@@ -23,7 +24,7 @@ function renderCfg() {
           renderCfg();
         }),
     );
-  ({ instrucoes: drawInstr, papeis: drawRoleInstructions, kb: drawKb, imgs: drawImgs, onboarding: drawOnboarding, comments: drawComments, ai: drawAi })[ui.tab]();
+  ({ attendance: drawAttendance, instrucoes: drawInstr, papeis: drawRoleInstructions, kb: drawKb, imgs: drawImgs, onboarding: drawOnboarding, comments: drawComments, ai: drawAi })[ui.tab]();
 }
 const dirty = () =>
   draft.identity !== saved.identity ||
