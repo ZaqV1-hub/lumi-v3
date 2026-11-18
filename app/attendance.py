@@ -138,4 +138,3 @@ def save_policy(data: PolicyInput, user=Depends(current_user)):
         for key, value in data.model_dump().items():
             setattr(row, key, json.dumps(value) if key == "windows" else value)
     return data.model_dump()
-
