@@ -27,6 +27,19 @@ class AttendanceFixture(unittest.TestCase):
         self.calls.stop();self.Session.configure(bind=self.previous);self.engine.dispose();self.folder.cleanup()
 
 class AttendanceTest(AttendanceFixture):
+    def test_waiting_only_policy_preserves_an_assumed_conversation(self):
+        from app.attendance_worker import process
+        from app.attendance import AttendancePolicy,AttendanceRequest
+        from app.models import Conversation,Message
+        with self.Session.begin() as db:
+            db.get(AttendancePolicy,'t').timeout_mode='waiting'
+            db.get(Conversation,'c').status='humano'
+            db.get(AttendanceRequest,'c').claimed_at=self.at
+        process('c',self.at+timedelta(minutes=20))
+        with self.Session() as db:
+            self.assertEqual(db.get(Conversation,'c').status,'humano')
+            self.assertEqual(db.scalar(select(func.count()).select_from(Message)),2)
+
     def test_admin_policy_and_waiting_count_respect_tenant_and_readonly(self):
         import hashlib,time
         from fastapi.testclient import TestClient

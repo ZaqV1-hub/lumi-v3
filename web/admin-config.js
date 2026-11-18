@@ -5,9 +5,9 @@ function renderCfg() {
     ["instrucoes", "Instruções"],
     ["papeis", "Instruções por papel"],
     ["kb", "Base de conhecimento"],
+    ["attendance", "Atendimento humano"],
     ["imgs", "Imagens"],
     ["onboarding", "Onboarding"],
-    ["attendance", "Atendimento humano"],
     ["comments", "Comentários Instagram"],
   ];
   if(me.role==="brevia")tabs.push(["ai", "Inteligência artificial"]);

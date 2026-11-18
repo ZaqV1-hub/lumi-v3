@@ -31,7 +31,7 @@ class AttendancePolicy(Base):
     windows: Mapped[str] = mapped_column(Text, default="[]")
     timeout_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     timeout_minutes: Mapped[int] = mapped_column(Integer, default=10)
-    timeout_mode: Mapped[str] = mapped_column(String(16), default="both")
+    timeout_mode: Mapped[str] = mapped_column(String(16), default="waiting")
     phone_consent: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
@@ -59,7 +59,7 @@ class PolicyInput(BaseModel):
     windows: list[Window] = Field(default_factory=list, max_length=7)
     timeout_enabled: bool = False
     timeout_minutes: int = Field(default=10, ge=1, le=120)
-    timeout_mode: str = Field(default="both", pattern="^(both|waiting|claimed)$")
+    timeout_mode: str = Field(default="waiting", pattern="^(both|waiting|claimed)$")
     phone_consent: bool = False
 
     @model_validator(mode="after")
