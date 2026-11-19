@@ -34,11 +34,16 @@ async def flow_endpoint(phone: str, request: Request):
             raise HTTPException(413)
     raw = bytes(raw)
     if not signed(raw, request.headers.get('x-hub-signature-256'), secret):
+        log.warning('Flows request signature rejected; channel=%s', phone)
         raise HTTPException(403)
     try:
         data, key, iv = decrypt(raw, Path(config['private_key_path']).read_bytes())
     except Exception:
         log.warning('Invalid encrypted Flows request for configured channel')
         raise HTTPException(421, 'Não foi possível abrir a sessão') from None
-    result = await asyncio.to_thread(exchange, phone, config, data, process_pool)
+    try:
+        result = await asyncio.to_thread(exchange, phone, config, data, process_pool)
+    except HTTPException as error:
+        log.warning('Flows request rejected; channel=%s status=%s', phone, error.status_code)
+        raise
     return PlainTextResponse(encrypt(result, key, iv))
