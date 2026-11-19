@@ -10,6 +10,8 @@ O ambiente privado aponta `LUMI_WHATSAPP_FLOWS_FILE` para um JSON. Cada chave é
 
 O endpoint público é `POST /webhooks/whatsapp/flows/{phone_number_id}`. Rejeita requisições sem HMAC válido do aplicativo do canal e recebe somente o envelope criptografado padrão RSA-OAEP/SHA256 + AES-GCM. Não expõe as rotas do simulador administrativo. O mesmo pool de processamento do receptor executa a IA; não cria workers adicionais.
 
+Durante a preparação na Meta, `launch_enabled: false` mantém o endpoint disponível para a verificação criptografada de saúde, sem criar aberturas no WhatsApp. Só retirar essa restrição após validar e publicar o Flow. Esse campo não substitui `enabled`, que desativa todo o adaptador.
+
 ## Conversa e isolamento
 
 O primeiro texto recebido no canal habilitado cria uma abertura interativa de Flow. O token opaco fica vinculado ao telefone, tenant e conversa, com validade de 24 horas. Nova abertura tem proteção de dois minutos contra repetição. A sessão cria uma conversa separada para o mesmo contato, sem registro em `whatsapp_chats`. Assim, as mensagens da IA e do operador nessa conversa ficam no admin, mas não entram na fila de envio do WhatsApp. O canal do admin é “WhatsApp Flows”. O telefone mostrado no perfil segue a política de visibilidade do tenant e um vínculo verificado com o canal original. Ferramentas recebem a identidade WhatsApp original pelo servidor, preservando a validação de tenant e papel.

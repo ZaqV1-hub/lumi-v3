@@ -43,6 +43,8 @@ def intercept(db, channel, chat, incoming):
     config = channel_config(channel.phone_number_id)
     if not config or config['tenant_id'] != channel.tenant_id:
         return False
+    if config.get('launch_enabled') is False:
+        return False
     if config.get('recipients') and chat.sender not in config['recipients']:
         return False
     original = db.get(Conversation, chat.id)

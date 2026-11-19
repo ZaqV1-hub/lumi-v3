@@ -180,3 +180,10 @@ class FlowTest(unittest.TestCase):
         with self.assertRaises(HTTPException):self.exchange()
         with patch.dict(os.environ,{'LUMI_WHATSAPP_FLOWS_FILE':''}),patch.object(routes,'process_pool',self.pool):
             self.assertEqual(TestClient(self.webhook.app).post('/webhooks/whatsapp/flows/12345',json={}).status_code,404)
+
+    def test_health_only_configuration_does_not_intercept_incoming_messages(self):
+        from app.whatsapp.flows import runtime
+        from app.whatsapp.models import Channel
+        with self.Session.begin() as db:
+            with patch.object(runtime,'channel_config',return_value=dict(self.config,launch_enabled=False)):
+                self.assertFalse(runtime.intercept(db,db.get(Channel,'12345'),None,{'type':'text'}))
