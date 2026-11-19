@@ -17,7 +17,7 @@ def chat_layout():
                     'name':'navigate','next':{'type':'screen','name':'FINISH'},'payload':{}}},
                 {'type':'Form','name':'chat_form','init-values':{'question':'${data.question_init}'},'children':[
                     {'type':'TextArea','name':'question','label':'Digite sua mensagem','max-length':2000,
-                        'visible':'${data.can_ask}','required':True},
+                        'visible':'${data.can_ask}','required':False},
                     {'type':'Footer','label':'${data.action_label}','on-click-action':{
                         'name':'data_exchange','payload':{'question':'${form.question}',
                             'nonce':'${data.nonce}','operation':'ask'}}},
