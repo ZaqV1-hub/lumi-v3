@@ -17,6 +17,26 @@ process_pool = None
 log = logging.getLogger(__name__)
 
 
+async def respond(phone, config, data, pool, budget=7.0):
+    # Stay below Meta's request deadline. Waiting never holds the admission lock
+    # or submits another inference; slow answers retain the manual refresh.
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + budget
+    result = await asyncio.to_thread(exchange, phone, config, data, pool)
+    while (data.get('action') == 'data_exchange'
+        and result.get('data', {}).get('can_ask') is False):
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            break
+        await asyncio.sleep(min(0.25, remaining))
+        current = channel_config(phone)
+        if not current or current['tenant_id'] != config['tenant_id']:
+            raise HTTPException(403, 'Sessão indisponível')
+        result = await asyncio.to_thread(exchange, phone, current,
+            {'action':'INIT', 'flow_token':data.get('flow_token')}, pool)
+    return result
+
+
 @router.post('/webhooks/whatsapp/flows/{phone}')
 async def flow_endpoint(phone: str, request: Request):
     config = channel_config(phone)
@@ -42,7 +62,7 @@ async def flow_endpoint(phone: str, request: Request):
         log.warning('Invalid encrypted Flows request for configured channel')
         raise HTTPException(421, 'Não foi possível abrir a sessão') from None
     try:
-        result = await asyncio.to_thread(exchange, phone, config, data, process_pool)
+        result = await respond(phone, config, data, process_pool)
     except HTTPException as error:
         log.warning('Flows request rejected; channel=%s status=%s', phone, error.status_code)
         raise

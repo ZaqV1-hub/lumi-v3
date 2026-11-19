@@ -105,18 +105,18 @@ def screen(db, row, note=''):
     history = list(db.scalars(select(Message).where(Message.tenant_id == row.tenant_id,
         Message.conversation_id == row.conversation_id).order_by(Message.created_at.desc(), Message.id.desc()).limit(6)))[::-1]
     name = assistant_name(db.get(Tenant, row.tenant_id))
-    lines = [('Você' if m.sender == 'cliente' else name if m.sender == 'lumi' else 'Equipe')
-        + ': ' + m.content[:900] for m in history]
+    lines = ['**' + ('Você' if m.sender == 'cliente' else name if m.sender == 'lumi' else 'Equipe')
+        + '**\n' + m.content[:900] for m in history]
     if pending:
         lines.append('Preparando a resposta. Toque em Ver resposta para atualizar.')
     elif turns and turns[0].state == 'interrupted':
         lines.append('A resposta foi interrompida. Consulte o histórico antes de repetir um pedido.')
     if note:
         lines.append(note)
-    text = '\n\n'.join(lines)[-3500:] or 'Como posso ajudar? Digite sua pergunta abaixo.'
+    text = '\n\n'.join(lines)[-3500:] or 'Como posso ajudar? Escreva sua mensagem abaixo.'
     return {'version':'3.0', 'screen':'CHAT', 'data':{'history':text,
         'nonce':row.nonce, 'can_ask':not pending, 'question_init':'',
-        'action_label':'Ver resposta' if pending else 'Enviar pergunta'}}
+        'action_label':'Ver resposta' if pending else 'Enviar mensagem'}}
 
 
 def exchange(phone, config, payload, pool):

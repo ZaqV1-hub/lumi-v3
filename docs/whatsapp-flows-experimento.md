@@ -1,6 +1,6 @@
 # Experimento de atendimento por WhatsApp Flows
 
-Este adaptador é opcional e começa desligado. Não incorpora o HTML do simulador. O arquivo `app/whatsapp/flows/layout.py` define duas telas nativas, com pergunta, histórico textual recente, atualização da resposta e encerramento. A inferência acontece no servidor; durante o processamento, a pessoa toca em “Ver resposta”. Não há streaming nem atualização automática garantida pelo Flows. Fotos, áudios e anexos não estão cobertos por este primeiro teste.
+Este adaptador é opcional e começa desligado. Não incorpora o HTML do simulador. O arquivo `app/whatsapp/flows/layout.py` define duas telas nativas, com mensagem, histórico textual recente e encerramento. Ao enviar, o endpoint aguarda até sete segundos pela resposta, sem bloquear a admissão global nem repetir a inferência. Quando pronta nesse prazo, a resposta aparece na mesma atualização, sem outro clique. Respostas mais demoradas mantêm “Ver resposta” para atualização manual antes de exceder o prazo da Meta. Não há streaming, temporizador na tela nem push posterior para o Flow. Fotos, áudios e anexos não estão cobertos por este primeiro teste.
 
 ## Ativação em homologação
 

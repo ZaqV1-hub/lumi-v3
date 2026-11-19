@@ -1,4 +1,5 @@
 import base64
+import asyncio
 import hashlib
 import hmac
 import json
@@ -187,3 +188,25 @@ class FlowTest(unittest.TestCase):
         with self.Session.begin() as db:
             with patch.object(runtime,'channel_config',return_value=dict(self.config,launch_enabled=False)):
                 self.assertFalse(runtime.intercept(db,db.get(Channel,'12345'),None,{'type':'text'}))
+
+    def test_response_waits_without_resubmitting_question_and_has_bounded_fallback(self):
+        from app.whatsapp.flows import routes
+        pending={'data':{'can_ask':False}}
+        ready={'data':{'can_ask':True,'history':'Resposta pronta'}}
+        payload={'action':'data_exchange','flow_token':'example-token','data':{'question':'Teste'}}
+        with patch.object(routes,'exchange',side_effect=[pending,ready]) as exchange, \
+            patch.object(routes,'channel_config',return_value=self.config):
+            result=asyncio.run(routes.respond('12345',self.config,payload,self.pool))
+        self.assertEqual(result,ready)
+        self.assertEqual(exchange.call_count,2)
+        self.assertEqual(exchange.call_args_list[1].args[2],{'action':'INIT','flow_token':'example-token'})
+        with patch.object(routes,'exchange',return_value=pending) as exchange:
+            self.assertEqual(asyncio.run(routes.respond('12345',self.config,payload,self.pool,budget=0)),pending)
+            exchange.assert_called_once()
+
+    def test_response_wait_rechecks_channel_configuration(self):
+        from app.whatsapp.flows import routes
+        with patch.object(routes,'exchange',return_value={'data':{'can_ask':False}}), \
+            patch.object(routes,'channel_config',return_value=dict(self.config,tenant_id='other')):
+            with self.assertRaises(HTTPException):
+                asyncio.run(routes.respond('12345',self.config,{'action':'data_exchange'},self.pool))
