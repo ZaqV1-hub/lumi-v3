@@ -14,7 +14,8 @@ function renderConvos(prepend = false) {
   const thread = $('.conversations-view .thread');
   const position = thread && {id: displayedConversation, top: thread.scrollTop,
     atEnd: !prepend && thread.scrollHeight - thread.clientHeight - thread.scrollTop < 60,
-    height: prepend ? thread.scrollHeight : null, profile: $('#contactProfile')?.open};
+    height: prepend ? thread.scrollHeight : null, profile: $('#contactProfile')?.open,
+    tools: $('#conversationTools')?.open};
   const focused = document.activeElement;
   const inputId = ['cq', 'humanText'].includes(focused?.id) ? focused.id : '';
   const selection = inputId ? [focused.selectionStart, focused.selectionEnd] : [];
@@ -79,7 +80,7 @@ function drawConvoBody(position) {
         <div id="conversationListStatus"></div>
       </div>
     </div>
-    <div class="c-detail">${thread?.conversation ? conversationDetail({...c, messages: thread.messages})
+    <div class="c-detail">${thread?.conversation ? conversationDetail({...c, messages: thread.messages}, position)
       : ui.conv ? '<div id="conversationHistoryStatus"></div>' : '<div class="empty">Nenhuma conversa selecionada.</div>'}</div>
   </section>`;
   $('.c-items').scrollTop = listTop;
@@ -187,7 +188,7 @@ function wireConversation(c, position) {
   jump.onclick = () => { thread.scrollTop = thread.scrollHeight; };
 }
 
-function conversationDetail(c) {
+function conversationDetail(c, position) {
   const initials = c.name === 'Nome não informado' ? '#' : c.name.trim().split(/\s+/).slice(0,2).map(word => word[0]).join('').toUpperCase();
   const readonly = me.role === 'leitura';
   const human = c.status === 'humano';
@@ -202,10 +203,13 @@ function conversationDetail(c) {
         ${c.blocked && !readonly ? '<button class="btn btn-danger btn-sm" id="unblock">Desbloquear contato</button>' : ''}
       </div>
     </div>
+    <details id="conversationTools" class="conversation-tools" ${(position?.id === c.id ? position.tools : !matchMedia('(max-width: 900px)').matches) ? 'open' : ''}>
+    <summary>Dados e ligação</summary>
     ${renderCallingControls(c)}
     ${c.waiting_since ? `<p class="queue-request-time">Atendimento solicitado em ${esc(new Date(c.waiting_since).toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'}))}</p>` : ''}
     ${c.phone ? `<p>Telefone: <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></p>` : c.phone_consent === 'pending' ? '<p class="queue-request-time">Telefone: aguardando autorização do cliente</p>' : c.phone_consent === 'declined' ? '<p class="queue-request-time">Telefone: compartilhamento não autorizado</p>' : ''}
     ${conversationProfile(c)}
+    </details>
   </header>
   <div id="calling-slot"></div>
   <div class="thread-wrap"><div class="thread" role="log" aria-label="Mensagens da conversa">${conversationThread.cursor ? `<div class="page-more"><button id="moreMessages" class="btn btn-ghost" type="button" ${conversationThread.busy ? 'disabled' : ''}>${conversationThread.busy ? 'Carregando…' : conversationThread.error ? 'Tentar carregar mensagens anteriores novamente' : 'Ver mais mensagens'}</button></div>` : ''}${conversationMessages(c)}</div><button id="jumpMessages" type="button" hidden>Ir para as últimas mensagens ↓</button></div>

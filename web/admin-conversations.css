@@ -38,6 +38,8 @@
 .conversations-view .calling-controls{margin:0;padding:11px 14px;border-color:transparent}
 .conversations-view .calling-granted [data-calling="start"]:enabled{background:var(--teal);border-color:var(--teal)}
 .conversation-profile summary{cursor:pointer;font-size:13px;color:var(--ink-2)}
+.conversation-tools>summary{cursor:pointer;font-size:13px;color:var(--ink-2);padding:4px 0}
+.conversation-tools[open]>summary{margin-bottom:8px}
 .conversation-profile .meta-panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:10px;padding:12px;border-radius:12px;background:var(--surface-2);max-height:200px;overflow:auto}
 .conversation-profile .meta-panel label,.conversation-profile .meta-panel span{display:block;color:var(--ink-3);font-size:12px;margin-bottom:4px}
 .conversation-profile .meta-panel b{font-size:13px;overflow-wrap:anywhere}
@@ -62,14 +64,39 @@
 .conversations-view .page-more{display:flex;justify-content:center;padding:12px}
 .conversations-view .lumi-banner{border-top:1px solid var(--line);padding:14px 20px;font-size:13px}
 @media(max-width:900px){
+  html:has(.conversations-view),body:has(.conversations-view){overflow:hidden;overscroll-behavior:none}
+  body:has(.conversations-view) #app>.main{height:100dvh;min-height:0}
+  body.operator-workspace:has(.conversations-view) #app>.main{height:calc(100dvh - 48px)}
+  body:has(.conversations-view) .topbar{flex:none}
+  body:has(.conversations-view) #content{display:flex;flex:1;min-height:0;max-width:none;padding:0}
+  .conversations-view{display:flex;flex:1;flex-direction:column;min-height:0}
+  .conversation-toolbar{padding:8px 12px;margin:0;flex:none}
+  .conversation-toolbar>span{display:none}
+  .conversations-view .queue-notice{margin:0;border-radius:0;flex:none;white-space:normal}
+  #cbody{display:flex;flex:1;min-height:0}
   .conversations-view .convo{grid-template-columns:minmax(0,1fr)}
+  .conversations-view #cbody .convo{flex:1;width:100%;height:100%;min-height:0;border:0;border-radius:0;box-shadow:none}
+  .conversations-view #cbody .convo.show-detail{position:fixed;inset:0;z-index:40;height:100dvh;background:var(--surface);padding-top:env(safe-area-inset-top,0px)}
+  body:has(.convo.show-detail) #operatorBar{display:none}
+  .conversations-view .c-detail{height:100%;overflow:hidden}
+  .conversations-view .d-head{max-height:45%;overflow:auto;overscroll-behavior:contain}
+  .conversations-view .d-top{gap:8px}
+  .conversations-view .d-top .back{align-self:center;min-width:40px;min-height:40px;padding:4px;font-size:26px}
+  .conversations-view .d-id h2{font-size:16px}
+  .conversations-view .d-id .contact-label{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+  .conversations-view .d-id .contact-id{font-size:10px;overflow-wrap:anywhere}
+  .conversations-view .handover-actions{justify-content:flex-end}
+  .conversations-view .thread-wrap{min-height:0;overflow:hidden}
+  .conversations-view .convo.show-detail .thread{flex:1;height:auto;min-height:0;max-height:none}
+  .conversations-view .reply-box{flex:none;padding:8px 10px max(8px,env(safe-area-inset-bottom,0px))}
+  .conversations-view .reply-box small{display:none}
+  .conversations-view .reply-box textarea{font-size:16px;resize:none}
+  .conversations-view .lumi-banner{flex:none;padding:10px 14px max(10px,env(safe-area-inset-bottom,0px))}
   .conversations-view .d-head{padding:12px 14px}
   .conversations-view .thread{padding:14px}
   .conversations-view .msg{max-width:88%}
 }
 @media(max-width:560px){
-  .conversations-view .convo.show-detail{height:auto;min-height:560px}
-  .conversations-view .convo.show-detail .thread{height:clamp(250px,42dvh,460px)}
   .conversations-view .handover-actions{width:100%}
 }
 .um-edit{display:block;width:100%;padding:10px 12px;text-align:left;border:0;background:none;border-radius:8px;color:var(--ink)}
