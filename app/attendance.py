@@ -49,8 +49,9 @@ class AttendanceRequest(Base):
 
 class Window(BaseModel):
     weekday: int = Field(ge=0, le=6)
+    enabled: bool = True
     start: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
-    end: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    end: str = Field(pattern=r"^(([01]\d|2[0-3]):[0-5]\d|24:00)$")
 
 
 class PolicyInput(BaseModel):
@@ -68,9 +69,9 @@ class PolicyInput(BaseModel):
             ZoneInfo(self.timezone)
         except (ValueError, ZoneInfoNotFoundError):
             raise ValueError("Fuso horário inválido") from None
-        if self.hours_enabled and not self.windows:
+        if self.hours_enabled and not any(w.enabled for w in self.windows):
             raise ValueError("Informe ao menos um período de atendimento")
-        if len({w.weekday for w in self.windows}) != len(self.windows) or any(w.start == w.end for w in self.windows):
+        if len({w.weekday for w in self.windows}) != len(self.windows) or any(w.enabled and w.end <= w.start for w in self.windows):
             raise ValueError("Confira os dias e horários")
         return self
 
@@ -96,11 +97,14 @@ def schedule(policy, at=None):
     for offset in range(-1, 9):
         day = local_date + timedelta(days=offset)
         for window in json.loads(policy.windows):
+            if not window.get("enabled", True):
+                continue
             if day.weekday() != window["weekday"]:
                 continue
             start = datetime.combine(day, time.fromisoformat(window["start"]), zone).astimezone(timezone.utc)
-            end_day = day + timedelta(days=window["end"] <= window["start"])
-            end = datetime.combine(end_day, time.fromisoformat(window["end"]), zone).astimezone(timezone.utc)
+            midnight = window["end"] == "24:00"
+            end_day = day + timedelta(days=midnight or window["end"] <= window["start"])
+            end = datetime.combine(end_day, time(0) if midnight else time.fromisoformat(window["end"]), zone).astimezone(timezone.utc)
             if start <= at < end:
                 return True, None
             if start > at:

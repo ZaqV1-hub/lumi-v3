@@ -27,6 +27,53 @@ class AttendanceFixture(unittest.TestCase):
         self.calls.stop();self.Session.configure(bind=self.previous);self.engine.dispose();self.folder.cleanup()
 
 class AttendanceTest(AttendanceFixture):
+    def test_full_day_and_disabled_days_survive_policy_validation(self):
+        from app.attendance import PolicyInput, AttendancePolicy, schedule
+        from pydantic import ValidationError
+        policy=PolicyInput(hours_enabled=True,windows=[{'weekday':0,'start':'00:00','end':'24:00'},
+            {'weekday':1,'enabled':False,'start':'09:00','end':'17:00'}])
+        row=AttendancePolicy(hours_enabled=True,timezone=policy.timezone,windows=json.dumps(policy.model_dump()['windows']))
+        self.assertTrue(schedule(row,datetime(2030,1,8,2,59,tzinfo=timezone.utc))[0])
+        self.assertFalse(schedule(row,datetime(2030,1,8,3,0,tzinfo=timezone.utc))[0])
+        with self.assertRaises(ValidationError):PolicyInput(hours_enabled=True,windows=[{'weekday':0,'enabled':False,'start':'09:00','end':'17:00'}])
+        with self.assertRaises(ValidationError):PolicyInput(windows=[{'weekday':0,'start':'22:00','end':'02:00'}])
+
+    def prepare_alert(self, expired=False):
+        from app.whatsapp.models import Chat,Channel,Outbox
+        from app.whatsapp.handover_alerts import HandoverAlert
+        from app.models import Message
+        with self.Session.begin() as db:
+            db.add(Channel(phone_number_id='111111',tenant_id='t',token_env='FAKE'));db.flush()
+            db.add(Chat(id='c',phone_number_id='111111',sender='15550000001',token='fixture'));db.flush()
+            db.add(Outbox(message_id='anchor',status='read',external_id='meta-original'))
+            db.add(HandoverAlert(message_id='anchor',phone_number_id='111111',topic='ingressos',status='accepted'))
+            if expired:db.get(Message,'customer').created_at=self.at-timedelta(days=2)
+
+    def test_timeout_queues_one_operator_reminder(self):
+        from app.attendance_worker import process
+        from app.whatsapp.handover_alerts import HandoverAlert
+        self.prepare_alert()
+        config={'phone_number_id':'111111','recipient':'15550000002','admin_url':'https://admin.example.test'}
+        with patch('app.whatsapp.handover_alerts.destination',return_value=config):
+            process('c',self.at+timedelta(minutes=11));process('c',self.at+timedelta(minutes=20))
+        with self.Session() as db:
+            alerts=list(db.scalars(select(HandoverAlert)))
+            self.assertEqual(len(alerts),2)
+            self.assertEqual([a.status for a in alerts].count('pending'),1)
+            self.assertTrue(all(a.topic=='ingressos' for a in alerts))
+
+    def test_operator_reminder_does_not_send_freeform_to_expired_customer(self):
+        from app.attendance_worker import process
+        from app.whatsapp.handover_alerts import HandoverAlert
+        from app.whatsapp.models import Outbox
+        self.prepare_alert(expired=True)
+        config={'phone_number_id':'111111','recipient':'15550000002','admin_url':'https://admin.example.test'}
+        with patch('app.whatsapp.handover_alerts.destination',return_value=config):process('c',self.at+timedelta(minutes=11))
+        with self.Session() as db:
+            alert=db.scalar(select(HandoverAlert).where(HandoverAlert.message_id!='anchor'))
+            self.assertEqual(alert.status,'pending')
+            self.assertEqual(db.get(Outbox,alert.message_id).status,'cancelled')
+
     def test_waiting_only_policy_preserves_an_assumed_conversation(self):
         from app.attendance_worker import process
         from app.attendance import AttendancePolicy,AttendanceRequest

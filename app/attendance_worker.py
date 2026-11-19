@@ -35,6 +35,7 @@ def process(cid, at=None):
     from .whatsapp.handover_alerts import HandoverAlert
     from .whatsapp.calling import has_active_call
     from .whatsapp.models import Chat
+    from .instagram.models import Chat as InstagramChat
     at = utc(at or now())
     with admission_lock, Session.begin() as db:
         conversation = db.scalar(select(Conversation).where(Conversation.id == cid).with_for_update())
@@ -80,13 +81,30 @@ def process(cid, at=None):
             state.operator_id = None
             state.revision += 1
             conversation.status = "aguardando"
-        # Free-form WhatsApp messages cannot reopen Meta's customer-service window.
-        if db.get(Chat, cid) and (not customer_at or utc(customer_at) < at - timedelta(hours=23)):
-            return
         state = control(db, cid)
-        save_reply(db, tid, cid,
+        # The operator alert has its own template/window policy. It can still be
+        # queued when the customer's free-form window has expired.
+        external_chat = db.get(Chat, cid) or db.get(InstagramChat, cid)
+        can_notify_customer = not external_chat or (customer_at and utc(customer_at) >= at - timedelta(hours=23))
+        if not can_notify_customer:
+            notice = Message(tenant_id=tid, conversation_id=cid, sender="sistema",
+                content="O prazo de espera por um atendente foi atingido.")
+            db.add(notice)
+            db.flush()
+            from .whatsapp.models import Outbox
+            from .instagram.models import Outbox as InstagramOutbox
+            for model in (Outbox, InstagramOutbox):
+                queued = db.get(model, notice.id)
+                if queued:
+                    queued.status, queued.error = "cancelled", "Aviso interno; janela de atendimento encerrada."
+        else:
+            notice = save_reply(db, tid, cid,
             "Ainda não tivemos uma resposta de um atendente. Sua solicitação continua registrada para a equipe. "
-            "Enquanto isso, sigo por aqui para ajudar com suas dúvidas.", state.revision, track_revision=True)
+            "Enquanto isso, sigo por aqui para ajudar com suas dúvidas.", state.revision, track_revision=True)[0]
+        original = db.get(HandoverAlert, row.message_id)
+        if not original or original.status in {"accepted", "failed", "no_window", "cancelled"}:
+            from .whatsapp.handover_alerts import enqueue
+            enqueue(db, tid, cid, notice.id, original.topic if original else "outro")
 
 
 def run_once():
