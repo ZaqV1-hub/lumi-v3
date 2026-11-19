@@ -80,6 +80,15 @@ def _receive(phone_id, incoming, name, pool):
         db.add(row)
         token = bind_sender(db, channel, sender, name)
         incoming_type = incoming.get("type")
+        button_content = None
+        if incoming_type == "interactive":
+            from ..contact_consent import accept_button
+            chat = db.scalar(select(Chat).where(Chat.token == token))
+            button_content = accept_button(db, channel.tenant_id, chat.id, incoming)
+            if button_content is None:
+                row.status = "unsupported"
+                return
+            incoming_type = "text"
         token_env = channel.token_env
         if incoming_type not in ("text", "image", "audio"):
             row.status = "unsupported"
@@ -87,7 +96,7 @@ def _receive(phone_id, incoming, name, pool):
     try:
         loader = None
         if incoming_type == "text":
-            content = incoming["text"]["body"]
+            content = button_content or incoming["text"]["body"]
         else:
             media = incoming.get(incoming_type, {})
             caption = media.get("caption", "")
@@ -175,6 +184,10 @@ def deliver_one():
         image = db.get(ImageAsset, attached.image_id) if attached else None
         document = message_document(db, message.tenant_id, message.conversation_id, mid)
         attachment = {"document": (document.filename, document.data)} if document else {}
+        from ..contact_consent import buttons as consent_buttons
+        choices = consent_buttons(db, mid)
+        if choices:
+            attachment["buttons"] = choices
         operator_file = operator_attachment(db, message)
         if operator_file:
             attachment["operator_media"] = (operator_file.kind, FILENAMES[operator_file.kind], operator_file.data, operator_file.mime)
@@ -205,6 +218,8 @@ def deliver_one():
             reported.error if reported else error,
         )
         arm_after_send(db, mid, item.status)
+        from ..contact_consent import ensure_request
+        ensure_request(db, db.get(Message, mid), item.status)
     return True
 
 

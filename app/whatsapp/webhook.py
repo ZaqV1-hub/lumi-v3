@@ -11,6 +11,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy import select, update
 from ..db import Base, engine, Session
 from ..media_models import ContactGate
+from .. import attendance, contact_consent
 from .config import app_secret, load_config
 from .models import Channel, Inbox
 from .bridge import receive, deliver_one, record_delivery
@@ -74,13 +75,16 @@ async def lifespan(_):
 
     alerts = asyncio.create_task(deliver_handover_alerts())
     follow_up = asyncio.create_task(poll_follow_up())
+    from ..attendance_worker import poll as poll_attendance
+    attendance_worker = asyncio.create_task(poll_attendance())
     try:
         yield
     finally:
         worker.cancel()
         alerts.cancel()
         follow_up.cancel()
-        await asyncio.gather(worker, alerts, follow_up, return_exceptions=True)
+        attendance_worker.cancel()
+        await asyncio.gather(worker, alerts, follow_up, attendance_worker, return_exceptions=True)
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)

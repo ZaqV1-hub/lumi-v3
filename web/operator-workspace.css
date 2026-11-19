@@ -6,3 +6,5 @@ body.operator-workspace{padding-top:48px}
 .readonly-notice{padding:8px 16px;background:#F7F0E2;color:#705117;font:14px Inter,system-ui,sans-serif;text-align:center}
 @media(max-width:640px){.operator-workspace .app{height:calc(100dvh - 48px)}}
 .tenant .status.off{color:var(--ink-3)}.tenant .status.off::before{background:var(--ink-3);box-shadow:none}
+
+.queue-request-time{display:block;font-size:12px;line-height:1.5;color:#757180;margin:6px 0;overflow-wrap:anywhere}.attendance-settings .card-b{display:grid;gap:16px}.attendance-day{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:10px 0}.attendance-day>label:first-child{min-width:150px}.attendance-settings fieldset{border:1px solid #e6e6ec;border-radius:12px;padding:16px}.attendance-settings label{display:block}.attendance-settings input[type=time]{padding:7px;border:1px solid #d7d5df;border-radius:8px}@media(max-width:600px){.attendance-day{gap:8px}.attendance-day>label:first-child{width:100%}}

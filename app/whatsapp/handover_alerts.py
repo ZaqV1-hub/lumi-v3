@@ -87,6 +87,10 @@ def deliver_alert():
             alert.status = "cancelled"
             return True
         recipient = config["recipient"]
+        from ..attendance import AttendancePolicy, schedule
+        if not schedule(db.get(AttendancePolicy, message.tenant_id))[0]:
+            alert.status = "deferred"
+            return True
         template = config.get("template")
         recent = db.scalar(select(Message.id).join(Chat, Chat.id == Message.conversation_id).where(
             Message.tenant_id == message.tenant_id, Chat.phone_number_id == channel.phone_number_id,

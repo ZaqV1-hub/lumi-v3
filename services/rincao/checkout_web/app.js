@@ -2,7 +2,7 @@ import {digits,brandOf,BN,fmtNum,V} from './card-fields.js';
 import {esc,money,paymentPane,pendingPane,confirmedPane,expiredPane} from './screen.js';
 import {authenticateDebit} from './authentication.js';
 const $ = id=>document.getElementById(id);
-const base='/checkout/'+$('checkout').dataset.token;
+const base=$('checkout').dataset.apiBase || '/checkout/'+$('checkout').dataset.token;
 let current,method='pix',busy=false,renderKey='',checking=false;
 async function api(path,body) {
   const response=await fetch(base+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store'});
@@ -19,7 +19,7 @@ function apply(data,force=false) {
   $('total').textContent=$('smallTotal').textContent=money(data.quote.totalAmount);
   $('buyer').textContent=data.buyer_name;$('cpf').textContent='CPF '+data.cpf_masked;
   $('items').innerHTML=data.quote.items.map(item=>`<div class="items"><div class="row"><span class="t">${item.quantity} × ${esc(item.title)}</span><b class="num">${money(item.quantity*item.unit_price)}</b></div><div class="m num">${money(item.unit_price)} por ingresso</div></div>`).join('');
-  $('environment').textContent=data.sandbox?'Ambiente de testes. Não há cobrança real.':'Site de teste do Rincão. Este pagamento gera cobrança real na Cielo.';
+  $('environment').textContent=data.environment_note || (data.sandbox?'Ambiente de testes. Não há cobrança real.':'Este pagamento gera cobrança real na Cielo.');
   $('environment').hidden=data.state==='paid';
   const done=data.state==='paid';
   $('title').textContent=done?'Tudo certo, '+data.buyer_name.split(' ')[0]+'!':'Falta pouco para o seu passeio';

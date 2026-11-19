@@ -21,6 +21,8 @@ from .onboarding import profile_state
 from .visit_goal import confirmed_conversations
 from .whatsapp.calling_timeline import call_timeline, with_calls
 from .whatsapp.models import ArchivedChat, Chat as WhatsAppChat
+from .attendance import AttendanceRequest
+from .contact_consent import public_contact
 
 router = APIRouter(prefix="/api/admin")
 ZONE = ZoneInfo("America/Sao_Paulo")
@@ -122,8 +124,14 @@ def conversation_summary(db, user, c, confirmed, *, detail=False, period=None):
         "can_reply": bool(state and state.operator_id == user.id and user.console_role != "leitura"),
         "blocked": bool((gate := db.get(ContactGate, c.contact_id)) and gate.blocked),
     }
+    request = db.get(AttendanceRequest, c.id)
+    asked_at = request.requested_at if request and request.tenant_id == tid else db.scalar(
+        select(func.max(FeatureCall.created_at)).where(FeatureCall.tenant_id == tid,
+            FeatureCall.conversation_id == c.id, FeatureCall.feature == "handover")) if c.status in {"aguardando", "humano"} else None
+    item["waiting_since"] = timestamp(asked_at) if asked_at else None
     if detail:
         item["profile"] = profile
+        item.update(public_contact(db, tid, c.id))
     else:
         item["last_message"] = preview(db, tid, c.id, period)
     return item

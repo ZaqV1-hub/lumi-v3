@@ -5,6 +5,7 @@ function renderCfg() {
     ["instrucoes", "Instruções"],
     ["papeis", "Instruções por papel"],
     ["kb", "Base de conhecimento"],
+    ["attendance", "Atendimento humano"],
     ["imgs", "Imagens"],
     ["onboarding", "Onboarding"],
     ["comments", "Comentários Instagram"],
@@ -23,7 +24,7 @@ function renderCfg() {
           renderCfg();
         }),
     );
-  ({ instrucoes: drawInstr, papeis: drawRoleInstructions, kb: drawKb, imgs: drawImgs, onboarding: drawOnboarding, comments: drawComments, ai: drawAi })[ui.tab]();
+  ({ attendance: drawAttendance, instrucoes: drawInstr, papeis: drawRoleInstructions, kb: drawKb, imgs: drawImgs, onboarding: drawOnboarding, comments: drawComments, ai: drawAi })[ui.tab]();
 }
 const dirty = () =>
   draft.identity !== saved.identity ||

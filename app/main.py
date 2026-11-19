@@ -41,6 +41,7 @@ from .instagram.comment_admin import router as comment_admin_router
 from .role_instructions import router as role_instructions_router
 from .access import console_user
 from .schema import prepare_admin_history_indexes, prepare_feature_call_columns, prepare_login_session_columns
+from .attendance import router as attendance_router
 from .tenant_ai_routes import router as tenant_ai_router
 from .whatsapp.calling_admin import router as calling_router
 from .whatsapp.calling_reconcile import run_reconciler
@@ -75,6 +76,7 @@ async def lifespan(_):
 
 
 app = FastAPI(title="Lumi", lifespan=lifespan)
+app.include_router(attendance_router)
 app.include_router(auth_router)
 app.include_router(onboarding_router)
 app.include_router(admin_router)

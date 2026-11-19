@@ -120,6 +120,11 @@ def claim(cid: str, user=Depends(current_user)):
                 )
             )
         state.operator_id = user.id
+        from .attendance import AttendanceRequest
+        from .models import now
+        request = db.get(AttendanceRequest, cid)
+        if request and c.status != "humano":
+            request.claimed_at, request.unavailable_at = now(), None
         state.revision += 1
         c.status = "humano"
     return {"ok": True}
