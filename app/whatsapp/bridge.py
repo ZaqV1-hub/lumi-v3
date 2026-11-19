@@ -168,6 +168,10 @@ def deliver_one():
         item.status = "sending"
         mid = item.message_id
         message = db.get(Message, mid)
+        from ..contact_consent import may_send_request
+        if not may_send_request(db, mid, message.tenant_id):
+            item.status, item.error = "cancelled", "Pedido de consentimento desativado na configuração do tenant."
+            return True
         if not may_deliver(db, message) or not may_send(db, mid):
             item.status, item.error = "cancelled", "Resposta interrompida por mudança no atendimento."
             return True

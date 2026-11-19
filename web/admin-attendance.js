@@ -14,7 +14,7 @@ const NAME={0:"Domingo",1:"Segunda-feira",2:"Terça-feira",3:"Quarta-feira",4:"Q
 const AB={0:"dom",1:"seg",2:"ter",3:"qua",4:"qui",5:"sex",6:"sáb"};
 const LOW={0:"domingo",1:"segunda-feira",2:"terça-feira",3:"quarta-feira",4:"quinta-feira",5:"sexta-feira",6:"sábado"};
 const D=(on,s,e)=>({on,s,e});
-const fromPolicy = p => ({team:p.hours_enabled,tz:p.timezone,alert:p.timeout_enabled,wait:String(p.timeout_minutes),mode:p.timeout_mode==='waiting'?'waiting':'always',phone:p.phone_consent,
+const fromPolicy = p => ({team:p.hours_enabled,tz:p.timezone,alert:p.timeout_enabled,wait:String(p.timeout_minutes),mode:p.timeout_mode==='waiting'?'waiting':'always',phone:p.phone_visibility||(p.phone_consent?'consent':'hidden'),
  days:Object.fromEntries(ORDER.map(d=>{const w=p.windows.find(x=>x.weekday===(d+6)%7);return[d,w?D(w.enabled!==false,w.start,w.end):D(false,'08:00','18:00')]}))});
 let saved=fromPolicy(data),st=clone(saved),legacyClaimed=data.timeout_mode==='claimed',saving=false;
 const rx=/^([01]\d|2[0-3]):[0-5]\d$/;
@@ -96,7 +96,9 @@ function paintAll(){
   paintSummary();paintNow();
   $("#swWait").setAttribute("aria-checked",st.alert);$("#cardWait").classList.toggle("off",!st.alert);
   paintWait();
-  $("#swPhone").setAttribute("aria-checked",st.phone);
+  $("#swPhone").setAttribute("aria-checked",st.phone==='visible');
+  $("#swPhone").disabled=me.role!=='brevia';
+  $("#phoneMode").textContent=st.phone==='consent'?'Modo anterior: autorização por mensagem.':st.phone==='visible'?'O telefone aparece diretamente no perfil, sem pedir autorização no chat.':'O telefone fica oculto no admin, inclusive em conversas antigas.';
   $$('#teamBody button, #teamBody input, #teamBody select').forEach(el=>{el.disabled=me.role==='leitura'||!st.team||(el.classList.contains('tm')&&!st.days[+el.closest('.day-row').dataset.d].on)});
   $$('#waitBody button, #waitBody input').forEach(el=>el.disabled=me.role==='leitura'||!st.alert);
   if(me.role==='leitura')$$('button,input,select').forEach(el=>el.disabled=true);
@@ -113,7 +115,7 @@ const touch=()=>{paintAll()};
 /* eventos */
 $("#swTeam").onclick=()=>{st.team=!st.team;touch()};
 $("#swWait").onclick=()=>{st.alert=!st.alert;touch()};
-$("#swPhone").onclick=()=>{st.phone=!st.phone;touch()};
+$("#swPhone").onclick=()=>{if(me.role==='brevia'){st.phone=st.phone==='visible'?'hidden':'visible';touch()}};
 $("#tz").onchange=e=>{st.tz=e.target.value;touch()};
 $("#sched").addEventListener("click",e=>{const b=e.target.closest(".sw");if(!b)return;const d=+b.closest(".day-row").dataset.d;st.days[d].on=!st.days[d].on;touch()});
 $("#sched").addEventListener("input",e=>{
@@ -139,7 +141,7 @@ $("#wait").addEventListener("input",e=>{st.wait=e.target.value.replace(/\D/g,"")
 $("#wait").addEventListener("blur",()=>{if(st.alert&&!waitErr())st.wait=String(waitNum());touch()});
 $("#waitChips").addEventListener("click",e=>{const b=e.target.closest("[data-w]");if(b)wset(+b.dataset.w)});
 $("#modes").addEventListener("change",e=>{if(e.target.name==="mode"){st.mode=e.target.value;legacyClaimed=false;touch()}});
-const toPolicy = value => ({hours_enabled:value.team,timezone:value.tz,timeout_enabled:value.alert,timeout_minutes:Number(value.wait)>=1&&Number(value.wait)<=120?Number(value.wait):data.timeout_minutes,timeout_mode:value.mode==='waiting'?'waiting':legacyClaimed?'claimed':'both',phone_consent:value.phone,
+const toPolicy = value => ({hours_enabled:value.team,timezone:value.tz,timeout_enabled:value.alert,timeout_minutes:Number(value.wait)>=1&&Number(value.wait)<=120?Number(value.wait):data.timeout_minutes,timeout_mode:value.mode==='waiting'?'waiting':legacyClaimed?'claimed':'both',phone_consent:value.phone==='consent',phone_visibility:value.phone,
  windows:ORDER.map(d=>{const x=value.days[d];return{weekday:(d+6)%7,enabled:!!x.on,start:okT(x.s,false)?x.s:'08:00',end:okT(x.e,true)?x.e:'18:00'}})});
 $('#save').onclick=async()=>{
  if(hasErr()||saving||me.role==='leitura')return;

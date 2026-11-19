@@ -168,12 +168,13 @@ def migrate_whatsapp_follow_up(root, environment, release_id):
     from app.handover_summary import HandoverBrief
     from app.attendance import AttendancePolicy, AttendanceRequest
     from app.contact_consent import PhoneConsent, PhoneConsentEvent
+    from app.phone_visibility import PhoneVisibility
 
     with engine.begin() as connection:
         Base.metadata.create_all(connection, tables=[
             DocumentAsset.__table__, MessageDocument.__table__, FollowUpChannel.__table__,
             FollowUp.__table__, VisitGoal.__table__, HandoverAlert.__table__, HandoverOffer.__table__, HandoverBrief.__table__,
-            AttendancePolicy.__table__, AttendanceRequest.__table__, PhoneConsent.__table__, PhoneConsentEvent.__table__
+            AttendancePolicy.__table__, AttendanceRequest.__table__, PhoneConsent.__table__, PhoneConsentEvent.__table__, PhoneVisibility.__table__
         ])
         prepare_calling_schema(connection)
         prepare_feature_call_columns(connection)

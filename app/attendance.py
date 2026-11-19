@@ -1,9 +1,10 @@
 """Política de atendimento humano por empresa; horários não são decididos pelo modelo."""
 import json
+from typing import Literal
 from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, select, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -62,6 +63,7 @@ class PolicyInput(BaseModel):
     timeout_minutes: int = Field(default=10, ge=1, le=120)
     timeout_mode: str = Field(default="waiting", pattern="^(both|waiting|claimed)$")
     phone_consent: bool = False
+    phone_visibility: Literal["visible", "hidden", "consent"] | None = None
 
     @model_validator(mode="after")
     def valid_schedule(self):
@@ -78,8 +80,8 @@ class PolicyInput(BaseModel):
 
 def public_policy(row):
     if not row:
-        return PolicyInput().model_dump()
-    return {key: json.loads(row.windows) if key == "windows" else getattr(row, key) for key in PolicyInput.model_fields}
+        return PolicyInput().model_dump(exclude={"phone_visibility"})
+    return {key: json.loads(row.windows) if key == "windows" else getattr(row, key) for key in PolicyInput.model_fields if key != "phone_visibility"}
 
 
 def utc(value):
@@ -128,17 +130,35 @@ def prompt_context(db, tid):
 
 @router.get("")
 def get_policy(user=Depends(current_user)):
+    from .phone_visibility import phone_mode
     with Session() as db:
-        return public_policy(db.get(AttendancePolicy, user.tenant_id))
+        return {**public_policy(db.get(AttendancePolicy, user.tenant_id)), "phone_visibility": phone_mode(db, user.tenant_id)}
 
 
 @router.put("")
 def save_policy(data: PolicyInput, user=Depends(current_user)):
+    from .phone_visibility import PhoneVisibility, phone_mode
     with Session.begin() as db:
+        previous_mode = phone_mode(db, user.tenant_id)
+        mode = data.phone_visibility
+        if mode is not None and mode != previous_mode and getattr(user, "console_role", None) != "brevia":
+            raise HTTPException(403, "Somente a equipe Brevia pode alterar a exibição do telefone.")
         row = db.get(AttendancePolicy, user.tenant_id)
         if not row:
             row = AttendancePolicy(tenant_id=user.tenant_id)
             db.add(row)
-        for key, value in data.model_dump().items():
+        if mode is None and data.phone_consent != bool(row.phone_consent) and getattr(user, "console_role", None) != "brevia":
+            raise HTTPException(403, "Somente a equipe Brevia pode alterar a exibição do telefone.")
+        if mode is not None:
+            setting = db.get(PhoneVisibility, user.tenant_id)
+            if not setting:
+                setting = PhoneVisibility(tenant_id=user.tenant_id)
+                db.add(setting)
+            setting.mode = mode
+        for key, value in data.model_dump(exclude={"phone_visibility"}).items():
             setattr(row, key, json.dumps(value) if key == "windows" else value)
-    return data.model_dump()
+        if mode is not None:
+            row.phone_consent = mode == "consent"
+        db.flush()
+        result = {**public_policy(row), "phone_visibility": phone_mode(db, user.tenant_id)}
+    return result

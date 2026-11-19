@@ -10,6 +10,7 @@ from .db import Base
 from .models import Contact, Conversation, Message, now
 from .reply_delivery import ReplyPart
 from .spam import control
+from .phone_visibility import phone_mode
 
 PURPOSE = "exibir telefone à equipe e permitir contato sobre o atendimento"
 QUESTION = ("Você autoriza disponibilizar seu número de WhatsApp à nossa equipe para entrar em contato sobre seu atendimento? "
@@ -40,8 +41,7 @@ class PhoneConsentEvent(Base):
 
 def ensure_request(db, message, delivery_status):
     from .whatsapp.models import Chat
-    policy = db.get(AttendancePolicy, message.tenant_id)
-    if not policy or not policy.phone_consent or message.sender != "lumi" or delivery_status not in {"sent", "delivered", "read"}:
+    if phone_mode(db, message.tenant_id) != "consent" or message.sender != "lumi" or delivery_status not in {"sent", "delivered", "read"}:
         return
     conversation = db.get(Conversation, message.conversation_id)
     chat = db.get(Chat, message.conversation_id)
@@ -101,6 +101,14 @@ def public_contact(db, tid, cid):
     conversation = db.get(Conversation, cid)
     if not conversation or conversation.tenant_id != tid:
         return {"phone": None, "phone_consent": "not_requested"}
+    mode = phone_mode(db, tid)
+    if mode == "hidden":
+        return {"phone": None, "phone_consent": "hidden"}
+    if mode == "visible":
+        chat = db.get(Chat, cid)
+        channel = db.get(Channel, chat.phone_number_id) if chat else None
+        phone = "+" + chat.sender if channel and channel.tenant_id == tid else None
+        return {"phone": phone, "phone_consent": "not_required"}
     row = db.scalar(select(PhoneConsent).where(PhoneConsent.tenant_id == tid, PhoneConsent.contact_id == conversation.contact_id))
     state = "not_requested" if not row else "pending" if row.granted is None else "granted" if row.granted else "declined"
     phone = None
@@ -113,6 +121,8 @@ def public_contact(db, tid, cid):
 
 
 def prompt_context(db, tid, cid):
+    if phone_mode(db, tid) != "consent":
+        return ""
     state = public_contact(db, tid, cid)["phone_consent"]
     if not db.get(AttendancePolicy, tid) or state == "not_requested":
         return ""
@@ -121,3 +131,7 @@ def prompt_context(db, tid, cid):
             "Não afirme que uma fala genérica autorizou: somente o botão confirma ou altera a decisão. "
             "Se a pessoa quiser alterar a escolha ou responder em texto, oriente os botões da pergunta de autorização. "
             "Recusa não impede responder dúvidas, comprar ou pedir atendimento. Não pergunte novamente se já decidiu.")
+
+
+def may_send_request(db, mid, tid):
+    return db.get(PhoneConsent, mid) is None or phone_mode(db, tid) == "consent"

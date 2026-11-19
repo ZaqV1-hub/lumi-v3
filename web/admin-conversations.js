@@ -204,7 +204,7 @@ function conversationDetail(c) {
     </div>
     ${renderCallingControls(c)}
     ${c.waiting_since ? `<p class="queue-request-time">Atendimento solicitado em ${esc(new Date(c.waiting_since).toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'}))}</p>` : ''}
-    ${c.phone ? `<p>Telefone autorizado: <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></p>` : c.phone_consent === 'pending' ? '<p class="queue-request-time">Telefone: aguardando autorização do cliente</p>' : c.phone_consent === 'declined' ? '<p class="queue-request-time">Telefone: compartilhamento não autorizado</p>' : ''}
+    ${c.phone ? `<p>Telefone: <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></p>` : c.phone_consent === 'pending' ? '<p class="queue-request-time">Telefone: aguardando autorização do cliente</p>' : c.phone_consent === 'declined' ? '<p class="queue-request-time">Telefone: compartilhamento não autorizado</p>' : ''}
     ${conversationProfile(c)}
   </header>
   <div id="calling-slot"></div>

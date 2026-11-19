@@ -92,14 +92,14 @@ function attendanceMarkup() {
         <!-- 3. Telefone -->
         <section class="card" aria-labelledby="hPh">
           <div class="card-h">
-            <div><h2 id="hPh">Telefone do cliente</h2><p>Pedir autorização para exibir o telefone à equipe no WhatsApp.</p></div>
+            <div><h2 id="hPh">Exibir telefone no admin</h2><p>Visibilidade do número de WhatsApp para a equipe deste tenant.</p></div>
             <button class="sw" id="swPhone" type="button" role="switch" aria-checked="true" aria-labelledby="hPh"><i></i></button>
           </div>
           <div class="card-b">
-            <p style="font-size:13.5px;color:var(--ink-2)">O cliente escolhe pelos botões da mensagem. O número só aparece no perfil depois de autorizar.</p>
+            <p id="phoneMode" style="font-size:13.5px;color:var(--ink-2)"></p>
             <div class="out" id="phoneOut">
-              <div><b>Se o cliente autorizar</b>O número aparece no perfil da conversa.</div>
-              <div><b>Se o cliente recusar</b>O atendimento segue normalmente, sem mostrar o número.</div>
+              <div><b>Configuração por empresa</b>A equipe Brevia define se o número aparece. O nome e o ID continuam disponíveis.</div>
+              <div><b>Permissão de ligação</b>A autorização para ligar pelo WhatsApp continua sendo verificada separadamente.</div>
             </div>
           </div>
         </section>
