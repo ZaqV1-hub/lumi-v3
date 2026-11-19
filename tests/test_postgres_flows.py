@@ -25,6 +25,7 @@ from test_tools import ToolsTest
 from test_usage_report import UsageReportTest
 from test_tenant_ai import TenantAITest
 from test_analytics_export import AnalyticsExportTests
+from test_whatsapp_flows import FlowTest as WhatsAppFlowTest
 
 
 class PostgresFixture:
@@ -116,6 +117,7 @@ class PostgresToolsTest(PostgresFixture, ToolsTest):
 PostgresUsageReportTest = postgres_case(UsageReportTest)
 PostgresTenantAITest = postgres_case(TenantAITest)
 PostgresAnalyticsExportTests = postgres_case(AnalyticsExportTests)
+PostgresWhatsAppFlowTest = postgres_case(WhatsAppFlowTest)
 
 
 def load_tests(loader, tests, pattern):
@@ -123,4 +125,5 @@ def load_tests(loader, tests, pattern):
     return unittest.TestSuite(loader.loadTestsFromTestCase(cls) for cls in (
         PostgresFlowTest, PostgresConsoleTest, PostgresMessageOrderTest,
         PostgresToolsTest, PostgresUsageReportTest, PostgresTenantAITest, PostgresAnalyticsExportTests,
+        PostgresWhatsAppFlowTest,
     ))
