@@ -2,6 +2,7 @@ from .whatsapp.models import Chat as WhatsAppChat, Outbox as WhatsAppOutbox, Arc
 from .instagram.models import Chat as InstagramChat, Outbox as InstagramOutbox
 from .instagram.comment_models import CommentJob
 from sqlalchemy import select
+from .whatsapp.flows.models import FlowSession
 
 
 def channel_name(db, conversation_id):
@@ -11,6 +12,8 @@ def channel_name(db, conversation_id):
         return "instagram"
     if db.scalar(select(CommentJob.comment_id).where(CommentJob.conversation_id == conversation_id).limit(1)):
         return "instagram_comment"
+    if db.scalar(select(FlowSession.id).where(FlowSession.conversation_id == conversation_id).limit(1)):
+        return "whatsapp_flow"
     return "simulator"
 
 

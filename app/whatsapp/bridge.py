@@ -79,6 +79,10 @@ def _receive(phone_id, incoming, name, pool):
         row = Inbox(external_id=external_id, phone_number_id=phone_id)
         db.add(row)
         token = bind_sender(db, channel, sender, name)
+        from .flows.runtime import intercept
+        if intercept(db, channel, db.scalar(select(Chat).where(Chat.token == token)), incoming):
+            row.status = "done"
+            return
         incoming_type = incoming.get("type")
         button_content = None
         if incoming_type == "interactive":
@@ -188,6 +192,15 @@ def deliver_one():
         image = db.get(ImageAsset, attached.image_id) if attached else None
         document = message_document(db, message.tenant_id, message.conversation_id, mid)
         attachment = {"document": (document.filename, document.data)} if document else {}
+        from .flows.models import FlowLaunch
+        launch = db.get(FlowLaunch, mid)
+        if launch:
+            from .flows.config import channel_config
+            flow_config = channel_config(channel.phone_number_id)
+            if not flow_config or flow_config['tenant_id'] != message.tenant_id or str(flow_config['flow_id']) != launch.flow_id:
+                item.status, item.error = 'cancelled', 'Teste de Flows desativado ou alterado.'
+                return True
+            attachment['flow'] = {'flow_id':launch.flow_id, 'flow_token':launch.token}
         from ..contact_consent import buttons as consent_buttons
         choices = consent_buttons(db, mid)
         if choices:
@@ -235,6 +248,8 @@ def record_delivery(phone_id, delivery):
     with admission_lock, Session.begin() as db:
         if not db.get(Channel, phone_id):
             return
+        from .flows.billing import record_pricing
+        record_pricing(db, phone_id, delivery)
         row = db.get(DeliveryStatus, external_id)
         if row and (row.phone_number_id != phone_id or rank[row.status] > rank[status]):
             return

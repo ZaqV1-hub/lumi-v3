@@ -23,7 +23,7 @@ def download_media(media_id, token_env):
         return bytes(data),metadata.get('mime_type','')
 
 
-def send(phone_id, token_env, recipient, text, image_data=None, *, document=None, operator_media=None, buttons=None):
+def send(phone_id, token_env, recipient, text, image_data=None, *, document=None, operator_media=None, buttons=None, flow=None):
     version = required("WHATSAPP_GRAPH_VERSION")
     if not re.fullmatch(r"v\d+\.\d+", version):
         raise RuntimeError("Versão Graph API inválida.")
@@ -40,6 +40,12 @@ def send(phone_id, token_env, recipient, text, image_data=None, *, document=None
         if buttons:
             payload = {"messaging_product": "whatsapp", "to": recipient, "type": "interactive",
                        "interactive": {"type": "button", "body": {"text": text[:1024]}, "action": {"buttons": buttons}}}
+        if flow:
+            payload = {"messaging_product":"whatsapp", "to":recipient, "type":"interactive",
+                "interactive":{"type":"flow", "body":{"text":text[:1024]}, "action":{
+                    "name":"flow", "parameters":{"flow_message_version":"3",
+                        "flow_id":flow['flow_id'], "flow_token":flow['flow_token'],
+                        "flow_cta":"Abrir atendimento", "flow_action":"data_exchange"}}}}
         if image_data or document or operator_media:
             if operator_media:
                 kind, filename, data, mime = operator_media

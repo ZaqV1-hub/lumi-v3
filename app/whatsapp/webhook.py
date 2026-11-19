@@ -30,6 +30,8 @@ from ..instagram.comment_models import CommentJob
 
 load_config()
 pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="whatsapp")
+from .flows import routes as flow_routes
+flow_routes.process_pool = pool
 
 
 @asynccontextmanager
@@ -51,6 +53,8 @@ async def lifespan(_):
         db.execute(update(HandoverAlert).where(HandoverAlert.status == "sending").values(status="uncertain"))
         db.execute(update(HandoverAlert).where(HandoverAlert.status == "preparing").values(status="pending"))
         db.execute(update(CommentJob).where(CommentJob.status.in_(["queued", "generating", "sending"])).values(status="interrupted", error="Servidor reiniciado; confira o comentário antes de reenviar."))
+        from .flows.models import FlowTurn
+        db.execute(update(FlowTurn).where(FlowTurn.state.in_(['preparing','generating'])).values(state='interrupted'))
 
     async def deliver():
         while True:
@@ -92,6 +96,7 @@ app.include_router(checkout_router)
 app.include_router(instagram_router)
 app.include_router(instagram_media_router)
 app.include_router(privacy_router)
+app.include_router(flow_routes.router)
 
 
 @app.get("/webhooks/whatsapp")

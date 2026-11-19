@@ -1,5 +1,5 @@
 const conversationChannel = channel => ({
-  whatsapp: 'WhatsApp', instagram: 'Instagram', instagram_comment: 'Comentário Instagram', simulator: 'Simulador',
+  whatsapp: 'WhatsApp', whatsapp_flow: 'WhatsApp Flows', instagram: 'Instagram', instagram_comment: 'Comentário Instagram', simulator: 'Simulador',
 })[channel] || 'Simulador';
 const conversationClock = new Intl.DateTimeFormat('pt-BR', {hour:'2-digit', minute:'2-digit', timeZone:'America/Sao_Paulo'});
 const conversationDate = new Intl.DateTimeFormat('pt-BR', {day:'2-digit', month:'long', year:'numeric', timeZone:'America/Sao_Paulo'});

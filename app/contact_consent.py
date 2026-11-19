@@ -98,6 +98,7 @@ def accept_button(db, tid, cid, incoming):
 
 def public_contact(db, tid, cid):
     from .whatsapp.models import Channel, Chat
+    from .whatsapp.flows.runtime import source_chat
     conversation = db.get(Conversation, cid)
     if not conversation or conversation.tenant_id != tid:
         return {"phone": None, "phone_consent": "not_requested"}
@@ -105,7 +106,7 @@ def public_contact(db, tid, cid):
     if mode == "hidden":
         return {"phone": None, "phone_consent": "hidden"}
     if mode == "visible":
-        chat = db.get(Chat, cid)
+        chat = db.get(Chat, cid) or source_chat(db, tid, cid)
         channel = db.get(Channel, chat.phone_number_id) if chat else None
         phone = "+" + chat.sender if channel and channel.tenant_id == tid else None
         return {"phone": phone, "phone_consent": "not_required"}
@@ -113,7 +114,7 @@ def public_contact(db, tid, cid):
     state = "not_requested" if not row else "pending" if row.granted is None else "granted" if row.granted else "declined"
     phone = None
     if row and row.granted:
-        chat = db.get(Chat, cid)
+        chat = db.get(Chat, cid) or source_chat(db, tid, cid)
         channel = db.get(Channel, chat.phone_number_id) if chat else None
         if channel and channel.tenant_id == tid and chat.sender == row.sender and chat.phone_number_id == row.phone_number_id:
             phone = "+" + chat.sender

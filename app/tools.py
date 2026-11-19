@@ -112,6 +112,9 @@ def execute_tool(tenant_id, conversation_id, call, revision, cutoff=None):
                 incoming = incoming.where(Message.created_at <= cutoff)
             message = db.scalar(incoming.order_by(Message.created_at.desc(), Message.id.desc()).limit(1))
             channel = db.get(Chat, conversation_id)
+            if not channel:
+                from .whatsapp.flows.runtime import source_chat
+                channel = source_chat(db, tenant_id, conversation_id)
             source_channel = "whatsapp" if channel else "instagram" if db.get(InstagramChat, conversation_id) else "simulator"
             context = {"contact_id": chat.contact_id, "message_id": message.id if message else "",
                        "channel": source_channel,
