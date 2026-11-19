@@ -12,6 +12,8 @@ O endpoint público é `POST /webhooks/whatsapp/flows/{phone_number_id}`. Rejeit
 
 Durante a preparação na Meta, `launch_enabled: false` mantém o endpoint disponível para a verificação criptografada de saúde, sem criar aberturas no WhatsApp. Só retirar essa restrição após validar e publicar o Flow. Esse campo não substitui `enabled`, que desativa todo o adaptador.
 
+Na instalação IIS HML existente, executar `scripts/windows/set-hml-flows-proxy.ps1` na VM acrescenta somente a rota `webhooks/whatsapp/flows/[0-9]+` para o receptor 8013, preservando e copiando o arquivo anterior. O script recusa destinos divergentes e não configura produção. `-Disable` remove somente essa regra, após nova cópia de segurança. Não restaurar o arquivo inteiro sobre alterações posteriores.
+
 ## Conversa e isolamento
 
 O primeiro texto recebido no canal habilitado cria uma abertura interativa de Flow. O token opaco fica vinculado ao telefone, tenant e conversa, com validade de 24 horas. Nova abertura tem proteção de dois minutos contra repetição. A sessão cria uma conversa separada para o mesmo contato, sem registro em `whatsapp_chats`. Assim, as mensagens da IA e do operador nessa conversa ficam no admin, mas não entram na fila de envio do WhatsApp. O canal do admin é “WhatsApp Flows”. O telefone mostrado no perfil segue a política de visibilidade do tenant e um vínculo verificado com o canal original. Ferramentas recebem a identidade WhatsApp original pelo servidor, preservando a validação de tenant e papel.
